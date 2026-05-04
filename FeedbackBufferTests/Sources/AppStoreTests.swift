@@ -64,7 +64,7 @@ final class AppStoreTests: XCTestCase {
         AppStore(
             feedbackRepository: FeedbackRepository(store: fileStore),
             warmupRepository: WarmupRepository(defaults: defaults),
-            defaults: defaults
+            settingsRepository: UserSettingsRepository(defaults: defaults)
         )
     }
 
@@ -106,12 +106,45 @@ final class AppStoreTests: XCTestCase {
         XCTAssertTrue(makeStore(fileStore: fileStore).hasCompletedOnboarding)
     }
 
+    func test_quickPhrasesPersistAcrossReload() {
+        let fileStore = InMemoryFileStore()
+        let store = makeStore(fileStore: fileStore)
+        let phrases = ["손목 눌림", "복압 풀림"]
+
+        store.updateQuickPhrases(phrases)
+
+        XCTAssertEqual(makeStore(fileStore: fileStore).quickPhrases, phrases)
+    }
+
+    func test_bootstrapNormalizesDefaultSkillAliases() throws {
+        let fileStore = InMemoryFileStore()
+        let handstandId = UUID()
+        let pullUpsId = UUID()
+        let backLeverId = UUID()
+        try fileStore.save(
+            [
+                Skill(id: pullUpsId, name: "Pull Ups", symbolName: "figure.strengthtraining.traditional"),
+                Skill(id: backLeverId, name: "Back Lever", symbolName: "figure.core.training"),
+                Skill(id: handstandId, name: "물구나무", symbolName: "figure.gymnastics")
+            ],
+            to: "skills.json"
+        )
+
+        let store = makeStore(fileStore: fileStore)
+
+        XCTAssertEqual(store.skills.map(\.id), [handstandId, pullUpsId])
+        XCTAssertEqual(store.skills.map(\.name), ["Handstand", "Pull ups"])
+        XCTAssertEqual(store.skills.map(\.symbolName), ["handstand.full", "pull.ups.full"])
+        XCTAssertFalse(store.skills.contains { $0.id == backLeverId })
+    }
+
     func test_bootstrapReportsPersistenceIssueOnLoadFailure() {
         let store = makeStore(fileStore: FailingFileStore())
 
         XCTAssertNotNil(store.persistenceIssue)
         XCTAssertFalse(store.skills.isEmpty)
         XCTAssertTrue(store.feedbacks.isEmpty)
+        XCTAssertFalse(store.quickPhrases.isEmpty)
     }
 
     func test_addFeedbackAppendsAndPersists() {
@@ -126,6 +159,21 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(added.title, "새 피드백")
         XCTAssertEqual(added.importance, 4)
         XCTAssertEqual(added.skillId, skill.id)
+    }
+
+    func test_firstFeedbackPersistsSeededDefaultSkillsForStableIds() throws {
+        let fileStore = InMemoryFileStore()
+        let store = makeStore(fileStore: fileStore)
+        let skill = store.skills.first!
+
+        store.addFeedback(skill: skill, title: "라인 유지", note: "", importance: 3)
+
+        let savedSkills = try fileStore.load([Skill].self, from: "skills.json")
+        XCTAssertEqual(savedSkills?.first?.id, skill.id)
+
+        let reloaded = makeStore(fileStore: fileStore)
+        XCTAssertEqual(reloaded.feedbacks.first?.skillId, skill.id)
+        XCTAssertEqual(reloaded.skills.first?.id, skill.id)
     }
 
     func test_addFeedbackRejectsBlankTitle() {

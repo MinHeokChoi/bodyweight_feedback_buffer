@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedbackCardView: View {
     let feedback: Feedback
     let score: Double
+    let isTop: Bool
     let onResolve: () -> Void
     let onMarkUnresolved: () -> Void
     let onEdit: () -> Void
@@ -31,7 +32,6 @@ struct FeedbackCardView: View {
                 if !feedback.note.isEmpty {
                     Text(feedback.note)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
                 metaRow
@@ -56,9 +56,16 @@ struct FeedbackCardView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(feedback.skillName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(feedback.skillName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    if isTop {
+                        Image(systemName: "star.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+                }
                 Text(feedback.title)
                     .font(.headline)
                     .foregroundStyle(.primary)
@@ -78,8 +85,8 @@ struct FeedbackCardView: View {
     private var metaRow: some View {
         HStack(spacing: 14) {
             ImportanceStars(importance: feedback.importance)
-            metaChip(systemImage: "exclamationmark.bubble", text: "미진함 \(feedback.unresolvedCount)")
-            metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 방치")
+            metaChip(systemImage: "exclamationmark.bubble", text: "더 연습 \(feedback.unresolvedCount)")
+            metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -95,7 +102,7 @@ struct FeedbackCardView: View {
     private var actions: some View {
         HStack(spacing: 8) {
             actionButton("해결", systemImage: "checkmark.circle.fill", tint: .green, action: onResolve)
-            actionButton("미진함", systemImage: "face.dashed", tint: .orange, action: onMarkUnresolved)
+            actionButton("더 연습", systemImage: "face.dashed", tint: .orange, action: onMarkUnresolved)
             actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
             actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }
@@ -103,14 +110,14 @@ struct FeedbackCardView: View {
 
     private func actionButton(_ title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 0) {
+            HStack(spacing: 4) {
                 Image(systemName: systemImage)
                     .font(.caption)
                 Text(title)
                     .font(.caption2)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)

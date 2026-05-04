@@ -4,48 +4,36 @@ struct AddFeedbackSheet: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    let initialSkill: Skill?
+    let skill: Skill
 
-    @State private var skillId: UUID?
     @State private var title: String = ""
     @State private var note: String = ""
     @State private var importance: Int = 3
+    @State private var editingPhrases = false
 
-    private let quickPhrases = ["골반이 흔들림", "견갑이 무너짐", "코어 힘이 풀림", "라인이 무너짐", "어깨가 으쓱"]
-
-    init(initialSkill: Skill? = nil) {
-        self.initialSkill = initialSkill
-        _skillId = State(initialValue: initialSkill?.id)
+    init(_ skill: Skill) {
+        self.skill = skill
     }
 
     private var canSave: Bool {
-        skillId != nil && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("기술") {
-                    Picker("기술 선택", selection: $skillId) {
-                        Text("선택 안 함").tag(UUID?.none)
-                        ForEach(store.skills) { skill in
-                            Text(skill.name).tag(Optional(skill.id))
-                        }
-                    }
-                }
-
                 Section {
-                    TextField("예: 골반이 흔들림", text: $title, axis: .vertical)
+                    TextField("예: 가동범위 부족", text: $title, axis: .vertical)
                         .lineLimit(1...3)
                     quickPhrasesView
                 } header: {
-                    Text("제목")
+                    Text("빈 공간")
                 } footer: {
                     Text("짧고 구체적으로 적을수록 다음 훈련에 떠올리기 쉬워요.")
                 }
 
-                Section("메모") {
-                    TextField("상세 메모 (선택)", text: $note, axis: .vertical)
+                Section("Cue") {
+                    TextField("상세 메모", text: $note, axis: .vertical)
                         .lineLimit(3...8)
                 }
 
@@ -53,7 +41,7 @@ struct AddFeedbackSheet: View {
                     ImportancePicker(importance: $importance)
                 }
             }
-            .navigationTitle("새 피드백")
+            .navigationTitle(skill.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -64,28 +52,46 @@ struct AddFeedbackSheet: View {
                         .disabled(!canSave)
                 }
             }
+            .sheet(isPresented: $editingPhrases) {
+                QuickPhrasesEditorSheet(phrases: store.quickPhrases)
+                    .environment(store)
+            }
         }
     }
 
     private var quickPhrasesView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(quickPhrases, id: \.self) { phrase in
-                    Button(phrase) {
-                        title = phrase
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("빠른 문구")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    editingPhrases = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.caption)
                 }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 4)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.quickPhrases, id: \.self) { phrase in
+                        Button(phrase) {
+                            title = phrase
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
         }
     }
 
     private func save() {
-        guard let id = skillId,
-              let skill = store.skills.first(where: { $0.id == id }) else { return }
         store.addFeedback(skill: skill, title: title, note: note, importance: importance)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()

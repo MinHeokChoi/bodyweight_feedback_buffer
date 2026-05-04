@@ -27,6 +27,7 @@ struct SkillDetailView: View {
                             FeedbackCardView(
                                 feedback: feedback,
                                 score: FeedbackScoring.score(for: feedback),
+                                isTop: false,
                                 onResolve: { withAnimation { store.resolve(feedback.id) } },
                                 onMarkUnresolved: { withAnimation { store.markUnresolved(feedback.id) } },
                                 onEdit: { editing = feedback },
@@ -52,7 +53,7 @@ struct SkillDetailView: View {
             }
         }
         .sheet(isPresented: $addingFeedback) {
-            AddFeedbackSheet(initialSkill: skill).environment(store)
+            AddFeedbackSheet(skill).environment(store)
         }
         .sheet(item: $editing) { feedback in
             EditFeedbackSheet(feedback: feedback).environment(store)

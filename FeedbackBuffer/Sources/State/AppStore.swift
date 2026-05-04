@@ -12,31 +12,33 @@ final class AppStore {
     private(set) var feedbacks: [Feedback] = []
     private(set) var skills: [Skill] = []
     private(set) var warmup: [WarmupItem] = []
+    private(set) var quickPhrases: [String] = []
     private(set) var hasCompletedOnboarding = false
     private(set) var persistenceIssue: PersistenceIssue?
 
     private let feedbackRepository: FeedbackRepository
     private let warmupRepository: WarmupRepository
-    private let defaults: UserDefaults
-    private let hasCompletedOnboardingKey = "hasCompletedOnboarding_v1"
+    private let settingsRepository: UserSettingsRepository
     private var currentWarmupDateKey = WarmupDateKey.today()
+    private var needsInitialSkillSave = false
 
     init(
         feedbackRepository: FeedbackRepository = FeedbackRepository(),
         warmupRepository: WarmupRepository = WarmupRepository(),
-        defaults: UserDefaults = .standard
+        settingsRepository: UserSettingsRepository = UserSettingsRepository()
     ) {
         self.feedbackRepository = feedbackRepository
         self.warmupRepository = warmupRepository
-        self.defaults = defaults
+        self.settingsRepository = settingsRepository
         bootstrap()
     }
 
     // MARK: - Bootstrap
 
     private func bootstrap() {
-        let didCompleteOnboarding = defaults.bool(forKey: hasCompletedOnboardingKey)
+        let didCompleteOnboarding = settingsRepository.loadHasCompletedOnboarding()
         hasCompletedOnboarding = didCompleteOnboarding
+        quickPhrases = settingsRepository.loadQuickPhrases()
         currentWarmupDateKey = WarmupDateKey.today()
 
         do {
@@ -45,6 +47,8 @@ final class AppStore {
 
             if loadedSkills.isEmpty {
                 loadedSkills = SampleData.defaultSkills()
+                needsInitialSkillSave = true
+            } else if DefaultSkillNormalizer.normalize(&loadedSkills) {
                 try feedbackRepository.saveSkills(loadedSkills)
             }
 
@@ -55,6 +59,7 @@ final class AppStore {
             }
         } catch {
             skills = SampleData.defaultSkills()
+            needsInitialSkillSave = true
             feedbacks = []
             reportPersistenceIssue(
                 title: "데이터를 불러오지 못했습니다",
@@ -116,6 +121,7 @@ final class AppStore {
             importance: importance
         )
         feedbacks.append(new)
+        persistInitialSkillsIfNeeded()
         persistFeedbacks()
     }
 
@@ -150,7 +156,7 @@ final class AppStore {
 
     // MARK: - Skill intents
 
-    func addSkill(name: String, symbolName: String = "figure.strengthtraining.traditional") {
+    func addSkill(name: String, symbolName: String = "ellipsis.circle") {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         skills.append(Skill(name: trimmed, symbolName: symbolName))
@@ -265,11 +271,18 @@ final class AppStore {
         warmup = loadWarmup(for: now)
     }
 
+    // MARK: - Quick phrases
+
+    func updateQuickPhrases(_ phrases: [String]) {
+        quickPhrases = phrases
+        settingsRepository.saveQuickPhrases(phrases)
+    }
+
     // MARK: - Onboarding
 
     func completeOnboarding() {
         hasCompletedOnboarding = true
-        defaults.set(true, forKey: hasCompletedOnboardingKey)
+        settingsRepository.saveHasCompletedOnboarding()
     }
 
     func clearPersistenceIssue() {
@@ -293,6 +306,7 @@ final class AppStore {
     private func persistSkills() {
         do {
             try feedbackRepository.saveSkills(skills)
+            needsInitialSkillSave = false
         } catch {
             reportPersistenceIssue(
                 title: "기술 목록을 저장하지 못했습니다",
@@ -300,6 +314,11 @@ final class AppStore {
                 recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
             )
         }
+    }
+
+    private func persistInitialSkillsIfNeeded() {
+        guard needsInitialSkillSave else { return }
+        persistSkills()
     }
 
     private func persistWarmup() {

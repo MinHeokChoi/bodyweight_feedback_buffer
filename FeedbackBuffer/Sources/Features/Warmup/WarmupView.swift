@@ -29,7 +29,7 @@ struct WarmupView: View {
                     Button(role: .destructive) {
                         showingResetConfirm = true
                     } label: {
-                        Label("오늘 웜업 초기화", systemImage: "arrow.counterclockwise")
+                        Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
                     }
                 }
             }
@@ -71,8 +71,7 @@ struct WarmupView: View {
                     .font(.headline.monospacedDigit())
             }
 
-            ProgressView(value: store.warmupCompletionRatio)
-                .tint(store.isWarmupComplete ? .green : .accentColor)
+            progressBar
 
             if store.isWarmupComplete {
                 Label("훈련 준비 완료", systemImage: "checkmark.seal.fill")
@@ -86,9 +85,34 @@ struct WarmupView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
+        }
+    }
+
+    private var progressBar: some View {
+        GeometryReader { proxy in
+            let ratio = min(max(store.warmupCompletionRatio, 0), 1)
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color(.tertiarySystemFill))
+
+                Capsule()
+                    .fill(store.isWarmupComplete ? Color.green : Color.accentColor)
+                    .frame(width: proxy.size.width * ratio)
+            }
+        }
+        .frame(height: 8)
+        .accessibilityLabel("웜업 진행률")
+        .accessibilityValue("\(Int(store.warmupCompletionRatio * 100))퍼센트")
     }
 }
 

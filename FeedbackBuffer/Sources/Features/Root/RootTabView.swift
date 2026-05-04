@@ -9,6 +9,25 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        ZStack {
+            mainTabs
+                .accessibilityHidden(!store.hasCompletedOnboarding)
+
+            if !store.hasCompletedOnboarding {
+                OnboardingView(
+                    onComplete: {
+                        withAnimation(.easeOut(duration: 0.35)) {
+                            store.completeOnboarding()
+                        }
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(1)
+            }
+        }
+    }
+
+    private var mainTabs: some View {
         TabView(selection: $selection) {
             WarmupView()
                 .tabItem {
@@ -18,7 +37,7 @@ struct RootTabView: View {
 
             BufferView()
                 .tabItem {
-                    Label("피드백 버퍼", systemImage: "bolt.heart.fill")
+                    Label("피드백 버퍼", systemImage: "bubble.left.and.bubble.right.fill")
                 }
                 .tag(Tab.buffer)
 
@@ -27,11 +46,6 @@ struct RootTabView: View {
                     Label("기술 라이브러리", systemImage: "books.vertical.fill")
                 }
                 .tag(Tab.library)
-        }
-        .fullScreenCover(isPresented: onboardingBinding) {
-            OnboardingView {
-                store.completeOnboarding()
-            }
         }
         .alert(
             store.persistenceIssue?.title ?? "데이터 문제",
@@ -45,17 +59,6 @@ struct RootTabView: View {
                 Text(issue.message)
             }
         }
-    }
-
-    private var onboardingBinding: Binding<Bool> {
-        Binding(
-            get: { !store.hasCompletedOnboarding },
-            set: { isPresented in
-                if !isPresented {
-                    store.completeOnboarding()
-                }
-            }
-        )
     }
 
     private var persistenceIssueBinding: Binding<Bool> {

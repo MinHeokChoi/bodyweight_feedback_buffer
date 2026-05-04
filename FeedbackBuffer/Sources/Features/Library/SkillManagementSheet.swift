@@ -5,7 +5,6 @@ struct SkillManagementSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var newName = ""
-    @State private var newSymbolName = SkillSymbolOption.fallback.name
     @State private var editingSkill: Skill?
     @State private var deletingSkill: Skill?
     @State private var editMode: EditMode = .active
@@ -18,20 +17,16 @@ struct SkillManagementSheet: View {
         NavigationStack {
             List {
                 Section("새 기술") {
-                    TextField("예: 백레버", text: $newName)
+                    TextField("예: Human Flag", text: $newName)
                         .submitLabel(.done)
                         .onSubmit(addSkill)
 
-                    Picker("아이콘", selection: $newSymbolName) {
-                        ForEach(SkillSymbolOption.all) { option in
-                            Label(option.title, systemImage: option.name)
-                                .tag(option.name)
-                        }
-                    }
-
                     Button(action: addSkill) {
-                        Label("추가", systemImage: "plus.circle.fill")
+                        Label("새 기술 추가", systemImage: "plus.circle.fill")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .disabled(!canAdd)
                 }
 
@@ -83,10 +78,7 @@ struct SkillManagementSheet: View {
 
     private func row(for skill: Skill) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: skill.symbolName)
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
+            SkillIconView(symbolName: skill.symbolName, size: 28)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(skill.name)
@@ -120,10 +112,9 @@ struct SkillManagementSheet: View {
     private func addSkill() {
         guard canAdd else { return }
         withAnimation {
-            store.addSkill(name: newName, symbolName: newSymbolName)
+            store.addSkill(name: newName)
         }
         newName = ""
-        newSymbolName = SkillSymbolOption.fallback.name
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
@@ -139,12 +130,10 @@ private struct SkillFormSheet: View {
     let skill: Skill
 
     @State private var name: String
-    @State private var symbolName: String
 
     init(skill: Skill) {
         self.skill = skill
         _name = State(initialValue: skill.name)
-        _symbolName = State(initialValue: skill.symbolName)
     }
 
     private var canSave: Bool {
@@ -155,17 +144,8 @@ private struct SkillFormSheet: View {
         NavigationStack {
             Form {
                 Section("이름") {
-                    TextField("예: 백레버", text: $name)
+                    TextField("예: Human Flag", text: $name)
                         .submitLabel(.done)
-                }
-
-                Section("아이콘") {
-                    Picker("아이콘", selection: $symbolName) {
-                        ForEach(SkillSymbolOption.all) { option in
-                            Label(option.title, systemImage: option.name)
-                                .tag(option.name)
-                        }
-                    }
                 }
             }
             .navigationTitle("기술 수정")
@@ -176,7 +156,7 @@ private struct SkillFormSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") {
-                        store.updateSkill(id: skill.id, name: name, symbolName: symbolName)
+                        store.updateSkill(id: skill.id, name: name, symbolName: skill.symbolName)
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         dismiss()
                     }
@@ -185,30 +165,6 @@ private struct SkillFormSheet: View {
             }
         }
     }
-}
-
-private struct SkillSymbolOption: Identifiable {
-    let name: String
-    let title: String
-
-    var id: String { name }
-
-    static let fallback = SkillSymbolOption(
-        name: "figure.strengthtraining.traditional",
-        title: "훈련"
-    )
-
-    static let all: [SkillSymbolOption] = [
-        .fallback,
-        SkillSymbolOption(name: "figure.gymnastics", title: "물구나무"),
-        SkillSymbolOption(name: "figure.cooldown", title: "밸런스"),
-        SkillSymbolOption(name: "figure.core.training", title: "코어"),
-        SkillSymbolOption(name: "figure.climbing", title: "당기기"),
-        SkillSymbolOption(name: "figure.pull.up", title: "풀업"),
-        SkillSymbolOption(name: "figure.strengthtraining.functional", title: "근력"),
-        SkillSymbolOption(name: "figure.flexibility", title: "유연성"),
-        SkillSymbolOption(name: "ellipsis.circle", title: "기타")
-    ]
 }
 
 #Preview {

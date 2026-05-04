@@ -3,15 +3,19 @@ import SwiftUI
 struct OnboardingView: View {
     let onComplete: () -> Void
 
+    init(onComplete: @escaping () -> Void = {}) {
+        self.onComplete = onComplete
+    }
+
     var body: some View {
         VStack(spacing: 28) {
             Spacer(minLength: 24)
 
             VStack(spacing: 18) {
-                Image("LaunchLogo")
+                Image("OnboardingLogo")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 132, height: 132)
+                    .frame(width: 124, height: 124)
                     .accessibilityHidden(true)
 
                 VStack(spacing: 10) {
@@ -44,7 +48,8 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground).ignoresSafeArea())
     }
 
     private func onboardingPoint(_ systemImage: String, title: String, body: String) -> some View {
@@ -66,6 +71,6 @@ struct OnboardingView: View {
     }
 }
 
-#Preview {
+#Preview("normal") {
     OnboardingView { }
 }

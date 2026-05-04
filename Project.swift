@@ -18,7 +18,7 @@ let project = Project(
                 "CFBundleDisplayName": "피드백 버퍼",
                 "UILaunchScreen": [
                     "UIColorName": "LaunchBackground",
-                    "UIImageName": "LaunchLogo"
+                    "UIImageName": "LaunchMark"
                 ],
                 "UISupportedInterfaceOrientations": [
                     "UIInterfaceOrientationPortrait"

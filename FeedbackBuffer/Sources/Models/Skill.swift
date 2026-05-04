@@ -5,7 +5,7 @@ struct Skill: Identifiable, Codable, Hashable {
     var name: String
     var symbolName: String
 
-    init(id: UUID = UUID(), name: String, symbolName: String = "figure.strengthtraining.traditional") {
+    init(id: UUID = UUID(), name: String, symbolName: String = "ellipsis.circle") {
         self.id = id
         self.name = name
         self.symbolName = symbolName
@@ -13,26 +13,30 @@ struct Skill: Identifiable, Codable, Hashable {
 }
 
 enum DefaultSkill: String, CaseIterable {
-    case handstand = "물구나무"
-    case planche = "플란체"
-    case frontLever = "프론트레버"
-    case muscleUp = "머슬업"
-    case pullUp = "풀업"
-    case dips = "딥스"
-    case core = "코어"
-    case mobility = "유연성"
+    case handstand = "Handstand"
+    case bridgeCircle = "Bridge Circle"
+    case cartwheel = "Cart Wheel"
+    case qdr = "Q.D.R"
+    case hspu = "HSPU"
+    case pullUps = "Pull ups"
+    case frontLever = "Front Lever"
+    case dips = "Dips"
+    case muscleUp = "Muscle Up"
+    case piaStretching = "Pia stretching"
     case other = "기타"
 
     var symbolName: String {
         switch self {
-        case .handstand: "figure.gymnastics"
-        case .planche: "figure.cooldown"
-        case .frontLever: "figure.core.training"
-        case .muscleUp: "figure.climbing"
-        case .pullUp: "figure.pull.up"
-        case .dips: "figure.strengthtraining.functional"
-        case .core: "figure.core.training"
-        case .mobility: "figure.flexibility"
+        case .handstand: "handstand.full"
+        case .bridgeCircle: "bridge.full"
+        case .cartwheel: "cartwheel.full"
+        case .qdr: "figure.core.training"
+        case .hspu: "hspu.full"
+        case .pullUps: "pull.ups.full"
+        case .frontLever: "front.lever.full"
+        case .dips: "dips.full"
+        case .muscleUp: "muscle.up.full"
+        case .piaStretching: "pia.stretching.full"
         case .other: "ellipsis.circle"
         }
     }

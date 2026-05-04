@@ -24,20 +24,14 @@ struct BufferView: View {
             } description: {
                 Text("기술 라이브러리 탭에서 오늘 느낀 점을 추가해보세요.")
             }
-            } else {
+        } else {
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    BufferSummaryView(
-                        activeCount: active.count,
-                        topFeedback: active.first
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-
                     ForEach(active) { feedback in
                         FeedbackCardView(
                             feedback: feedback,
                             score: FeedbackScoring.score(for: feedback),
+                            isTop: feedback.id == active.first?.id,
                             onResolve: {
                                 withAnimation { store.resolve(feedback.id) }
                                 UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -54,6 +48,7 @@ struct BufferView: View {
                         .padding(.horizontal, 16)
                     }
                 }
+                .padding(.top, 8)
                 .padding(.bottom, 24)
             }
         }
