@@ -2,16 +2,17 @@ import SwiftUI
 
 struct SkillDetailView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     let skill: Skill
 
     @State private var addingFeedback = false
     @State private var editing: Feedback?
 
-    private var feedbacks: [Feedback] { store.activeFeedbacks(forSkillId: skill.id) }
+    private var scoredFeedbacks: [(Feedback, Double)] { store.activeFeedbacksScored(forSkillId: skill.id) }
 
     var body: some View {
         Group {
-            if feedbacks.isEmpty {
+            if scoredFeedbacks.isEmpty {
                 ContentUnavailableView {
                     Label("아직 피드백이 없어요", systemImage: "tray")
                 } description: {
@@ -23,11 +24,10 @@ struct SkillDetailView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(feedbacks) { feedback in
+                        ForEach(scoredFeedbacks, id: \.0.id) { feedback, score in
                             FeedbackCardView(
                                 feedback: feedback,
-                                score: FeedbackScoring.score(for: feedback),
-                                isTop: false,
+                                score: score,
                                 onResolve: { withAnimation { store.resolve(feedback.id) } },
                                 onMarkUnresolved: { withAnimation { store.markUnresolved(feedback.id) } },
                                 onEdit: { editing = feedback },
@@ -53,7 +53,8 @@ struct SkillDetailView: View {
             }
         }
         .sheet(isPresented: $addingFeedback) {
-            AddFeedbackSheet(skill).environment(store)
+            AddFeedbackSheet(skill, onSaved: { dismiss() })
+                .environment(store)
         }
         .sheet(item: $editing) { feedback in
             EditFeedbackSheet(feedback: feedback).environment(store)

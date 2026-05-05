@@ -2,7 +2,7 @@ import SwiftUI
 
 struct WarmupView: View {
     @Environment(AppStore.self) private var store
-    @State private var showingResetConfirm = false
+    @State private var confirmingReset = false
     @State private var editingRoutine = false
 
     var body: some View {
@@ -10,8 +10,9 @@ struct WarmupView: View {
             List {
                 Section {
                     progressHeader
-                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 8, trailing: 0))
                         .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 Section("오늘의 웜업") {
@@ -25,13 +26,7 @@ struct WarmupView: View {
                     }
                 }
 
-                Section {
-                    Button(role: .destructive) {
-                        showingResetConfirm = true
-                    } label: {
-                        Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
-                    }
-                }
+                resetSection
             }
             .navigationTitle("웜업")
             .toolbar {
@@ -44,18 +39,42 @@ struct WarmupView: View {
                     .accessibilityLabel("웜업 루틴 수정")
                 }
             }
-            .confirmationDialog(
-                "오늘의 웜업 체크를 모두 해제할까요?",
-                isPresented: $showingResetConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("초기화", role: .destructive) {
-                    withAnimation { store.resetWarmupToday() }
-                }
-                Button("취소", role: .cancel) { }
-            }
             .sheet(isPresented: $editingRoutine) {
                 WarmupRoutineEditorView().environment(store)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var resetSection: some View {
+        if confirmingReset {
+            Section {
+                Button(role: .destructive) {
+                    withAnimation {
+                        store.resetWarmupToday()
+                        confirmingReset = false
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } label: {
+                    Label("예", systemImage: "checkmark")
+                }
+
+                Button(role: .cancel) {
+                    withAnimation { confirmingReset = false }
+                } label: {
+                    Label("아니오", systemImage: "xmark")
+                }
+            } header: {
+                Text("오늘의 웜업 체크를 모두 해제할까요?")
+            }
+        } else {
+            Section {
+                Button(role: .destructive) {
+                    withAnimation { confirmingReset = true }
+                } label: {
+                    Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!store.warmup.contains(where: \.checked))
             }
         }
     }
@@ -86,13 +105,14 @@ struct WarmupView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 18)
         .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
         }
     }

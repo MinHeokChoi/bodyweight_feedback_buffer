@@ -10,6 +10,7 @@ struct EditFeedbackSheet: View {
     @State private var title: String
     @State private var note: String
     @State private var importance: Int
+    @State private var category: FeedbackCategory
 
     init(feedback: Feedback) {
         self.original = feedback
@@ -17,33 +18,44 @@ struct EditFeedbackSheet: View {
         _title = State(initialValue: feedback.title)
         _note = State(initialValue: feedback.note)
         _importance = State(initialValue: feedback.importance)
+        _category = State(initialValue: feedback.category)
     }
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var currentSkillName: String {
+        store.skills.first(where: { $0.id == skillId })?.name ?? "선택 안 됨"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("기술") {
-                    Picker("기술", selection: $skillId) {
-                        ForEach(store.skills) { skill in
-                            Text(skill.name).tag(skill.id)
-                        }
-                    }
-                }
-
-                Section("제목") {
+//                Section("기술") {
+//                    SkillMenuPicker(skillId: $skillId, skills: store.skills, currentName: currentSkillName)
+//                }
+                Section {
                     TextField("예: 골반이 흔들림", text: $title, axis: .vertical)
                         .lineLimit(1...3)
+                } header: {
+                    Text("빈 공간")
                 }
 
-                Section("메모") {
-                    TextField("상세 메모 (선택)", text: $note, axis: .vertical)
+                Section("Cue") {
+                    TextField("상세 메모", text: $note, axis: .vertical)
                         .lineLimit(3...8)
                 }
-
+                
+                Section("범주") {
+                    Picker("범주", selection: $category) {
+                        ForEach(FeedbackCategory.allCases) { c in
+                            Text(c.displayName).tag(c)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                
                 Section("중요도") {
                     ImportancePicker(importance: $importance)
                 }
@@ -70,8 +82,36 @@ struct EditFeedbackSheet: View {
         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.importance = importance
+        updated.category = category
         store.updateFeedback(updated)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
+    }
+}
+
+struct SkillMenuPicker: View {
+    @Binding var skillId: UUID
+    let skills: [Skill]
+    let currentName: String
+
+    var body: some View {
+        Menu {
+            Picker(selection: $skillId) {
+                ForEach(skills) { skill in
+                    Text(skill.name).tag(skill.id)
+                }
+            } label: { EmptyView() }
+        } label: {
+            HStack {
+                Text(currentName)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .tint(.primary)
     }
 }

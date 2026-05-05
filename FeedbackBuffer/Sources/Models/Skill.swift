@@ -30,7 +30,7 @@ enum DefaultSkill: String, CaseIterable {
         case .handstand: "handstand.full"
         case .bridgeCircle: "bridge.full"
         case .cartwheel: "cartwheel.full"
-        case .qdr: "figure.core.training"
+        case .qdr: "qdr.full"
         case .hspu: "hspu.full"
         case .pullUps: "pull.ups.full"
         case .frontLever: "front.lever.full"

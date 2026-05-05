@@ -31,8 +31,9 @@ struct SkillManagementSheet: View {
                 }
 
                 Section("기술 순서") {
+                    let activeCounts = store.activeCountsBySkill
                     ForEach(store.skills) { skill in
-                        row(for: skill)
+                        row(for: skill, activeCount: activeCounts[skill.id] ?? 0)
                     }
                     .onMove { source, destination in
                         withAnimation {
@@ -69,21 +70,21 @@ struct SkillManagementSheet: View {
                 Button("취소", role: .cancel) { deletingSkill = nil }
             } message: {
                 if let deletingSkill {
-                    let count = feedbackCount(for: deletingSkill)
+                    let count = store.feedbackCount(forSkillId: deletingSkill.id)
                     Text(count == 0 ? "삭제 후에는 되돌릴 수 없습니다." : "연결된 피드백 \(count)개도 함께 삭제됩니다.")
                 }
             }
         }
     }
 
-    private func row(for skill: Skill) -> some View {
+    private func row(for skill: Skill, activeCount: Int) -> some View {
         HStack(spacing: 12) {
             SkillIconView(symbolName: skill.symbolName, size: 28)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(skill.name)
                     .foregroundStyle(.primary)
-                Text("활성 피드백 \(store.activeCount(forSkillId: skill.id))개")
+                Text("활성 피드백 \(activeCount)개")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -117,10 +118,6 @@ struct SkillManagementSheet: View {
         newName = ""
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
-
-    private func feedbackCount(for skill: Skill) -> Int {
-        store.feedbacks.filter { $0.skillId == skill.id }.count
-    }
 }
 
 private struct SkillFormSheet: View {
@@ -144,7 +141,7 @@ private struct SkillFormSheet: View {
         NavigationStack {
             Form {
                 Section("이름") {
-                    TextField("예: Human Flag", text: $name)
+                    TextField("예: Back Lever", text: $name)
                         .submitLabel(.done)
                 }
             }

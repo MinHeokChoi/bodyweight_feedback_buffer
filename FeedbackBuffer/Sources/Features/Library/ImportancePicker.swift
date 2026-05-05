@@ -5,6 +5,11 @@ struct ImportancePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text(label(for: importance))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(labelColor(for: importance))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { value in
                     Button {
@@ -22,9 +27,6 @@ struct ImportancePicker: View {
                     .accessibilityValue(value == importance ? "선택됨" : "선택 안 됨")
                 }
             }
-            Text(label(for: importance))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -36,6 +38,16 @@ struct ImportancePicker: View {
         case 4: "다음 훈련에 꼭 점검"
         case 5: "최우선 과제"
         default: ""
+        }
+    }
+
+    private func labelColor(for value: Int) -> Color {
+        switch value {
+        case 1...2: .secondary
+        case 3: .primary
+        case 4: .orange
+        case 5: .red
+        default: .secondary
         }
     }
 }

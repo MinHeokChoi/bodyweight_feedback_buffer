@@ -64,7 +64,8 @@ final class AppStoreTests: XCTestCase {
         AppStore(
             feedbackRepository: FeedbackRepository(store: fileStore),
             warmupRepository: WarmupRepository(defaults: defaults),
-            settingsRepository: UserSettingsRepository(defaults: defaults)
+            settingsRepository: UserSettingsRepository(defaults: defaults),
+            persistenceScheduler: .immediate
         )
     }
 

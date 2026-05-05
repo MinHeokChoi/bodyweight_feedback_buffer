@@ -14,13 +14,15 @@ struct WarmupItem: Identifiable, Codable, Hashable {
 
 enum DefaultWarmup {
     static let items: [WarmupItem] = [
-        WarmupItem(id: "wrist", label: "손목 가동성"),
-        WarmupItem(id: "shoulder_circle", label: "어깨 원 돌리기"),
-        WarmupItem(id: "scap_pushup", label: "스캐풀라 푸시업"),
-        WarmupItem(id: "hollow_body", label: "할로우 바디 홀드"),
-        WarmupItem(id: "bridge", label: "브릿지 또는 흉추 열기"),
-        WarmupItem(id: "hamstring", label: "햄스트링 스트레칭"),
-        WarmupItem(id: "handstand_drill", label: "가벼운 물구나무 라인 드릴")
+        WarmupItem(id: "palm_press", label: "손바닥 짚기"),
+        WarmupItem(id: "light_qdr_line", label: "가벼운 Q.D.R 라인"),
+        WarmupItem(id: "cartwheel", label: "카트휠"),
+        WarmupItem(id: "light_handstand_line", label: "가벼운 물구나무 라인"),
+        WarmupItem(id: "hspu_line", label: "HSPU 라인"),
+        WarmupItem(id: "bridge_circle", label: "브릿지 서클"),
+        WarmupItem(id: "side_front_split", label: "좌우, 앞뒤 스플릿"),
+        WarmupItem(id: "bridge_hold", label: "브릿지 홀드"),
+        WarmupItem(id: "tight_area_stretching", label: "덜 풀린 곳 스트레칭")
     ]
 }
 

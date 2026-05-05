@@ -3,7 +3,6 @@ import SwiftUI
 struct FeedbackCardView: View {
     let feedback: Feedback
     let score: Double
-    let isTop: Bool
     let onResolve: () -> Void
     let onMarkUnresolved: () -> Void
     let onEdit: () -> Void
@@ -28,11 +27,13 @@ struct FeedbackCardView: View {
                 .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 10) {
-                header
-                if !feedback.note.isEmpty {
-                    Text(feedback.note)
-                        .font(.subheadline)
-                        .lineLimit(3)
+                VStack(alignment: .leading, spacing: 6) {
+                    header
+                    if !feedback.note.isEmpty {
+                        Text(feedback.note)
+                            .font(.subheadline)
+                            .lineLimit(3)
+                    }
                 }
                 metaRow
                 actions
@@ -56,26 +57,22 @@ struct FeedbackCardView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(feedback.skillName)
-                        .font(.caption.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    if isTop {
-                        Image(systemName: "star.fill")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
+                    Text(feedback.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
                 }
-                Text(feedback.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(String(format: "%.1f", score))
-                    .font(.title3.weight(.bold).monospacedDigit())
+                    .font(.subheadline.weight(.bold).monospacedDigit())
                     .foregroundStyle(tierColor)
-                Text("점수")
+                Text("점")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -85,8 +82,9 @@ struct FeedbackCardView: View {
     private var metaRow: some View {
         HStack(spacing: 14) {
             ImportanceStars(importance: feedback.importance)
-            metaChip(systemImage: "exclamationmark.bubble", text: "더 연습 \(feedback.unresolvedCount)")
+            metaChip(systemImage: "exclamationmark.bubble", text: "연습 횟수 \(feedback.unresolvedCount)")
             metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
+            CategoryChip(category: feedback.category)
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -102,7 +100,7 @@ struct FeedbackCardView: View {
     private var actions: some View {
         HStack(spacing: 8) {
             actionButton("해결", systemImage: "checkmark.circle.fill", tint: .green, action: onResolve)
-            actionButton("더 연습", systemImage: "face.dashed", tint: .orange, action: onMarkUnresolved)
+            actionButton("미해결", systemImage: "face.dashed", tint: .orange, action: onMarkUnresolved)
             actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
             actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }
@@ -122,6 +120,36 @@ struct FeedbackCardView: View {
         .buttonStyle(.bordered)
         .controlSize(.small)
         .tint(tint)
+    }
+}
+
+struct CategoryChip: View {
+    let category: FeedbackCategory
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: category.systemImage)
+                //.foregroundStyle(tint)
+            Text(category.displayName)
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+//        .background(tint.opacity(0.16), in: Capsule())
+//        .overlay {
+//            Capsule()
+//                .stroke(tint.opacity(0.42), lineWidth: 1)
+//        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var tint: Color {
+        switch category {
+        case .physical: .teal
+        case .skill: .blue
+        }
     }
 }
 

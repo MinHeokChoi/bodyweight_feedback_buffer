@@ -12,9 +12,8 @@ enum FeedbackScoring {
     }
 
     static func score(for feedback: Feedback, now: Date = .now) -> Double {
-        let referenceDate = feedback.lastReviewedAt ?? feedback.createdAt
         let daysSinceCreated = max(0, now.timeIntervalSince(feedback.createdAt) / Constants.secondsPerDay)
-        let daysSinceReviewed = max(0, now.timeIntervalSince(referenceDate) / Constants.secondsPerDay)
+        let daysSinceReviewed = max(0, now.timeIntervalSince(feedback.referenceDate) / Constants.secondsPerDay)
 
         let raw = Double(feedback.importance) * Constants.importanceWeight
                 + Double(feedback.unresolvedCount) * Constants.unresolvedWeight
@@ -24,10 +23,19 @@ enum FeedbackScoring {
         return (raw * 10).rounded() / 10
     }
 
+    /// Computes each active feedback's score once, then sorts by precomputed score (descending).
+    static func sortedActiveWithScores(_ feedbacks: [Feedback], now: Date = .now) -> [(Feedback, Double)] {
+        var scored: [(Feedback, Double)] = []
+        scored.reserveCapacity(feedbacks.count)
+        for feedback in feedbacks where feedback.status == .active {
+            scored.append((feedback, score(for: feedback, now: now)))
+        }
+        scored.sort { $0.1 > $1.1 }
+        return scored
+    }
+
     static func sortedActive(_ feedbacks: [Feedback], now: Date = .now) -> [Feedback] {
-        feedbacks
-            .filter { $0.status == .active }
-            .sorted { score(for: $0, now: now) > score(for: $1, now: now) }
+        sortedActiveWithScores(feedbacks, now: now).map(\.0)
     }
 
     enum Tier {

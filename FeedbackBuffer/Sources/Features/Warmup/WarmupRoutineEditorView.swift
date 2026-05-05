@@ -19,7 +19,7 @@ struct WarmupRoutineEditorView: View {
             List {
                 Section("새 항목") {
                     HStack(spacing: 10) {
-                        TextField("예: 손목 가동성", text: $newLabel)
+                        TextField("예: kneeling push up", text: $newLabel)
                             .submitLabel(.done)
                             .onSubmit(addItem)
 

@@ -1,6 +1,17 @@
 import Foundation
 import Observation
 
+struct PersistenceScheduler {
+    let perform: (@escaping () -> Void) -> Void
+
+    static let background: PersistenceScheduler = {
+        let queue = DispatchQueue(label: "com.feedbackbuffer.persistence", qos: .utility)
+        return PersistenceScheduler { queue.async(execute: $0) }
+    }()
+
+    static let immediate = PersistenceScheduler { $0() }
+}
+
 @Observable
 final class AppStore {
     struct PersistenceIssue: Identifiable {
@@ -19,17 +30,19 @@ final class AppStore {
     private let feedbackRepository: FeedbackRepository
     private let warmupRepository: WarmupRepository
     private let settingsRepository: UserSettingsRepository
+    private let persistenceScheduler: PersistenceScheduler
     private var currentWarmupDateKey = WarmupDateKey.today()
-    private var needsInitialSkillSave = false
 
     init(
         feedbackRepository: FeedbackRepository = FeedbackRepository(),
         warmupRepository: WarmupRepository = WarmupRepository(),
-        settingsRepository: UserSettingsRepository = UserSettingsRepository()
+        settingsRepository: UserSettingsRepository = UserSettingsRepository(),
+        persistenceScheduler: PersistenceScheduler = .background
     ) {
         self.feedbackRepository = feedbackRepository
         self.warmupRepository = warmupRepository
         self.settingsRepository = settingsRepository
+        self.persistenceScheduler = persistenceScheduler
         bootstrap()
     }
 
@@ -45,21 +58,25 @@ final class AppStore {
             var loadedSkills = try feedbackRepository.loadSkills()
             let loadedFeedbacks = try feedbackRepository.loadFeedbacks()
 
-            if loadedSkills.isEmpty {
+            let seededDefaults = loadedSkills.isEmpty
+            if seededDefaults {
                 loadedSkills = SampleData.defaultSkills()
-                needsInitialSkillSave = true
             } else if DefaultSkillNormalizer.normalize(&loadedSkills) {
                 try feedbackRepository.saveSkills(loadedSkills)
             }
 
             skills = loadedSkills
             feedbacks = loadedFeedbacks
+
+            if seededDefaults {
+                persistSkills()
+            }
+
             if !didCompleteOnboarding && !loadedFeedbacks.isEmpty {
                 completeOnboarding()
             }
         } catch {
             skills = SampleData.defaultSkills()
-            needsInitialSkillSave = true
             feedbacks = []
             reportPersistenceIssue(
                 title: "데이터를 불러오지 못했습니다",
@@ -94,23 +111,53 @@ final class AppStore {
 
     // MARK: - Derived
 
-    var activeFeedbacks: [Feedback] {
-        FeedbackScoring.sortedActive(feedbacks)
+    var activeFeedbacksScored: [(Feedback, Double)] {
+        FeedbackScoring.sortedActiveWithScores(feedbacks)
     }
 
-    var topFeedback: Feedback? { activeFeedbacks.first }
+    var activeFeedbacks: [Feedback] {
+        activeFeedbacksScored.map(\.0)
+    }
 
-    func activeFeedbacks(forSkillId skillId: UUID) -> [Feedback] {
-        FeedbackScoring.sortedActive(feedbacks.filter { $0.skillId == skillId })
+    var topFeedback: Feedback? { activeFeedbacksScored.first?.0 }
+
+    func activeFeedbacksScored(forSkillId skillId: UUID) -> [(Feedback, Double)] {
+        FeedbackScoring.sortedActiveWithScores(feedbacks.filter { $0.skillId == skillId })
+    }
+
+    var activeCountsBySkill: [UUID: Int] {
+        var map: [UUID: Int] = [:]
+        for feedback in feedbacks where feedback.status == .active {
+            map[feedback.skillId, default: 0] += 1
+        }
+        return map
+    }
+
+    var feedbackCountsBySkill: [UUID: Int] {
+        var map: [UUID: Int] = [:]
+        for feedback in feedbacks {
+            map[feedback.skillId, default: 0] += 1
+        }
+        return map
     }
 
     func activeCount(forSkillId skillId: UUID) -> Int {
-        feedbacks.filter { $0.skillId == skillId && $0.status == .active }.count
+        activeCountsBySkill[skillId] ?? 0
+    }
+
+    func feedbackCount(forSkillId skillId: UUID) -> Int {
+        feedbackCountsBySkill[skillId] ?? 0
     }
 
     // MARK: - Feedback intents
 
-    func addFeedback(skill: Skill, title: String, note: String, importance: Int) {
+    func addFeedback(
+        skill: Skill,
+        title: String,
+        note: String,
+        importance: Int,
+        category: FeedbackCategory = .skill
+    ) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let new = Feedback(
@@ -118,10 +165,10 @@ final class AppStore {
             skillName: skill.name,
             title: trimmed,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines),
-            importance: importance
+            importance: importance,
+            category: category
         )
         feedbacks.append(new)
-        persistInitialSkillsIfNeeded()
         persistFeedbacks()
     }
 
@@ -292,33 +339,21 @@ final class AppStore {
     // MARK: - Persistence
 
     private func persistFeedbacks() {
-        do {
-            try feedbackRepository.saveFeedbacks(feedbacks)
-        } catch {
-            reportPersistenceIssue(
-                title: "피드백을 저장하지 못했습니다",
-                error: error,
-                recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
-            )
-        }
+        let snapshot = feedbacks
+        let repo = feedbackRepository
+        scheduleSave(
+            { try repo.saveFeedbacks(snapshot) },
+            failureTitle: "피드백을 저장하지 못했습니다"
+        )
     }
 
     private func persistSkills() {
-        do {
-            try feedbackRepository.saveSkills(skills)
-            needsInitialSkillSave = false
-        } catch {
-            reportPersistenceIssue(
-                title: "기술 목록을 저장하지 못했습니다",
-                error: error,
-                recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
-            )
-        }
-    }
-
-    private func persistInitialSkillsIfNeeded() {
-        guard needsInitialSkillSave else { return }
-        persistSkills()
+        let snapshot = skills
+        let repo = feedbackRepository
+        scheduleSave(
+            { try repo.saveSkills(snapshot) },
+            failureTitle: "기술 목록을 저장하지 못했습니다"
+        )
     }
 
     private func persistWarmup() {
@@ -327,14 +362,30 @@ final class AppStore {
     }
 
     private func persistWarmupRoutine() {
-        do {
-            try warmupRepository.saveRoutine(warmup)
-        } catch {
-            reportPersistenceIssue(
-                title: "웜업 루틴을 저장하지 못했습니다",
-                error: error,
-                recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
-            )
+        let snapshot = warmup
+        let repo = warmupRepository
+        scheduleSave(
+            { try repo.saveRoutine(snapshot) },
+            failureTitle: "웜업 루틴을 저장하지 못했습니다"
+        )
+    }
+
+    private func scheduleSave(
+        _ work: @escaping () throws -> Void,
+        failureTitle: String
+    ) {
+        persistenceScheduler.perform { [weak self] in
+            do {
+                try work()
+            } catch {
+                DispatchQueue.main.async {
+                    self?.reportPersistenceIssue(
+                        title: failureTitle,
+                        error: error,
+                        recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
+                    )
+                }
+            }
         }
     }
 

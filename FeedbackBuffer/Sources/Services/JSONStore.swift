@@ -18,7 +18,6 @@ final class JSONStore: FileStore {
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         self.encoder = encoder
 
         let decoder = JSONDecoder()
