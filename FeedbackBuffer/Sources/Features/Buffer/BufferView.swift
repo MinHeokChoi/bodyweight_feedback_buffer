@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BufferView: View {
     @Environment(AppStore.self) private var store
+    @State private var addingFeedback = false
     @State private var editing: Feedback?
     @AppStorage("buffer.showPhysical") private var showPhysical = true
     @AppStorage("buffer.showSkill") private var showSkill = true
@@ -10,6 +11,21 @@ struct BufferView: View {
         NavigationStack {
             content
                 .navigationTitle("피드백 버퍼")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            addingFeedback = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .disabled(store.skills.isEmpty)
+                        .accessibilityLabel("피드백 추가")
+                    }
+                }
+        }
+        .sheet(isPresented: $addingFeedback) {
+            AddFeedbackSheet(nil)
+                .environment(store)
         }
         .sheet(item: $editing) { feedback in
             EditFeedbackSheet(feedback: feedback)
@@ -84,10 +100,13 @@ struct BufferView: View {
                 Text(category.displayName)
             }
             .font(.caption.weight(.semibold))
+            .foregroundStyle(isOn.wrappedValue ? Color.accentColor : Color.secondary)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .modifier(CategoryToggleSurface(isSelected: isOn.wrappedValue))
+            .contentShape(Capsule())
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .tint(isOn.wrappedValue ? .primary : .secondary)
+        .buttonStyle(.plain)
         .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
     }
 
@@ -103,8 +122,36 @@ struct BufferView: View {
             ContentUnavailableView {
                 Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
             } description: {
-                Text("기술 라이브러리 탭에서 오늘 느낀 점을 추가해보세요.")
+                Text("오른쪽 위 + 버튼으로 오늘 느낀 점을 추가해보세요.")
             }
+        }
+    }
+}
+
+private struct CategoryToggleSurface: ViewModifier {
+    let isSelected: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular
+                        .tint(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
+                        .interactive(),
+                    in: Capsule()
+                )
+                .overlay {
+                    Capsule()
+                        .stroke(isSelected ? Color.accentColor.opacity(0.45) : Color.secondary.opacity(0.18), lineWidth: 1)
+                }
+        } else {
+            content
+                .background(isSelected ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.08), in: Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(isSelected ? Color.accentColor.opacity(0.42) : Color.secondary.opacity(0.18), lineWidth: 1)
+                }
         }
     }
 }

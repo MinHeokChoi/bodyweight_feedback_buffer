@@ -48,34 +48,14 @@ struct AddFeedbackSheet: View {
                     )
                 }
 
-
-                Section {
-                    TextField("예: 가동범위 부족", text: $title, axis: .vertical)
-                        .lineLimit(1...3)
-                } header: {
-                    Text("빈 공간")
-                }
-//                footer: {
-//                    Text("짧고 구체적으로 적을수록 다음 훈련에 떠올리기 쉬워요.")
-//                }
-
-                Section("Cue") {
-                    TextField("예: 강도 조금 낮추고, 범위 늘려서 채우기", text: $note, axis: .vertical)
-                        .lineLimit(3...8)
-                }
-                
-                Section("범주") {
-                    Picker("범주", selection: $category) {
-                        ForEach(FeedbackCategory.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                Section("중요도") {
-                    ImportancePicker(importance: $importance)
-                }
+                FeedbackFormFields(
+                    title: $title,
+                    note: $note,
+                    category: $category,
+                    importance: $importance,
+                    titlePlaceholder: "예: 가동범위 부족",
+                    notePlaceholder: "예: 강도 낮추고, 볼륨 채우기"
+                )
             }
             .navigationTitle("피드백 추가")
             .navigationBarTitleDisplayMode(.inline)

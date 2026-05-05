@@ -3,11 +3,9 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(AppStore.self) private var store
     @State private var managingSkills = false
-    @State private var addingFeedback = false
 
     private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.adaptive(minimum: 150), spacing: 12)
     ]
 
     var body: some View {
@@ -47,24 +45,12 @@ struct LibraryView: View {
                     }
                     .accessibilityLabel("기술 관리")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        addingFeedback = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .disabled(store.skills.isEmpty)
-                    .accessibilityLabel("피드백 추가")
-                }
             }
             .navigationDestination(for: Skill.self) { skill in
                 SkillDetailView(skill: skill)
             }
             .sheet(isPresented: $managingSkills) {
                 SkillManagementSheet().environment(store)
-            }
-            .sheet(isPresented: $addingFeedback) {
-                AddFeedbackSheet(nil).environment(store)
             }
         }
     }
@@ -98,7 +84,9 @@ private struct SkillTile: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(skill.name)
+        .accessibilityValue(count == 0 ? "활성 피드백 없음" : "활성 피드백 \(count)개")
     }
 }
 

@@ -5,7 +5,7 @@ struct Skill: Identifiable, Codable, Hashable {
     var name: String
     var symbolName: String
 
-    init(id: UUID = UUID(), name: String, symbolName: String = "ellipsis.circle") {
+    init(id: UUID = UUID(), name: String, symbolName: String = "dumbbell.fill") {
         self.id = id
         self.name = name
         self.symbolName = symbolName
@@ -23,7 +23,6 @@ enum DefaultSkill: String, CaseIterable {
     case dips = "Dips"
     case muscleUp = "Muscle Up"
     case piaStretching = "Pia stretching"
-    case other = "기타"
 
     var symbolName: String {
         switch self {
@@ -37,7 +36,6 @@ enum DefaultSkill: String, CaseIterable {
         case .dips: "dips.full"
         case .muscleUp: "muscle.up.full"
         case .piaStretching: "pia.stretching.full"
-        case .other: "ellipsis.circle"
         }
     }
 }

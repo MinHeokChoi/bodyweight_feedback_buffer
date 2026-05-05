@@ -9,25 +9,46 @@ struct SkillManagementSheet: View {
     @State private var deletingSkill: Skill?
     @State private var editMode: EditMode = .active
 
+    private var isDuplicateName: Bool {
+        store.hasSkill(named: newName)
+    }
+
     private var canAdd: Bool {
-        !newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !isDuplicateName
     }
 
     var body: some View {
         NavigationStack {
             List {
-                Section("새 기술") {
-                    TextField("예: Human Flag", text: $newName)
-                        .submitLabel(.done)
-                        .onSubmit(addSkill)
+                Section {
+                    HStack(spacing: 12) {
+                        TextField("예: Back Lever", text: $newName)
+                            .submitLabel(.done)
+                            .onSubmit(addSkill)
 
-                    Button(action: addSkill) {
-                        Label("새 기술 추가", systemImage: "plus.circle.fill")
-                            .frame(maxWidth: .infinity)
+                        Button(action: addSkill) {
+                            Image(systemName: "plus")
+                                .font(.headline.weight(.semibold))
+                                .frame(width: 34, height: 34)
+                                .foregroundStyle(.white)
+                                .background(
+                                    canAdd ? Color.accentColor : Color.secondary.opacity(0.32),
+                                    in: Circle()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!canAdd)
+                        .accessibilityLabel("새 기술 추가")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(!canAdd)
+                    .padding(.vertical, 2)
+                } header: {
+                    Text("새 기술 추가")
+                } footer: {
+                    if isDuplicateName {
+                        Text("이미 있는 기술이에요.")
+                            .foregroundStyle(.primary)
+                    }
                 }
 
                 Section("기술 순서") {
@@ -112,11 +133,11 @@ struct SkillManagementSheet: View {
 
     private func addSkill() {
         guard canAdd else { return }
-        withAnimation {
-            store.addSkill(name: newName)
-        }
+        let didAdd = store.addSkill(name: newName)
+        guard didAdd else { return }
         newName = ""
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        dismiss()
     }
 }
 

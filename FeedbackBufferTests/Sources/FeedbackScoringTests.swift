@@ -77,10 +77,12 @@ final class FeedbackScoringTests: XCTestCase {
     }
 
     func test_tierThresholds() {
-        XCTAssertEqual(FeedbackScoring.tier(for: 90), .high)
+        XCTAssertEqual(FeedbackScoring.tier(for: 100), .critical)
+        XCTAssertEqual(FeedbackScoring.tier(for: 99.9), .high)
         XCTAssertEqual(FeedbackScoring.tier(for: 80), .high)
-        XCTAssertEqual(FeedbackScoring.tier(for: 79.9), .medium)
-        XCTAssertEqual(FeedbackScoring.tier(for: 50), .medium)
-        XCTAssertEqual(FeedbackScoring.tier(for: 49.9), .low)
+        XCTAssertEqual(FeedbackScoring.tier(for: 60), .high)
+        XCTAssertEqual(FeedbackScoring.tier(for: 59.9), .medium)
+        XCTAssertEqual(FeedbackScoring.tier(for: 35), .medium)
+        XCTAssertEqual(FeedbackScoring.tier(for: 34.9), .low)
     }
 }

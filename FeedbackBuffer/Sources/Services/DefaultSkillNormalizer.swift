@@ -3,12 +3,6 @@ import Foundation
 enum DefaultSkillNormalizer {
     private static let canonicalDefaultSkillNames = DefaultSkill.allCases.map(\.rawValue)
 
-    private static let deprecatedDefaultSkillNames: Set<String> = [
-        "백레버",
-        "백 레버",
-        "Back Lever"
-    ]
-
     private static let defaultSkillAliases: [String: DefaultSkill] = [
         "물구나무": .handstand,
         "Handstand": .handstand,
@@ -27,20 +21,11 @@ enum DefaultSkillNormalizer {
         "머슬업": .muscleUp,
         "Muscle Up": .muscleUp,
         "Pia Stretching": .piaStretching,
-        "Pia stretching": .piaStretching,
-        "기타": .other
+        "Pia stretching": .piaStretching
     ]
 
     static func normalize(_ loadedSkills: inout [Skill]) -> Bool {
         var didChange = false
-
-        let skillCount = loadedSkills.count
-        loadedSkills.removeAll {
-            deprecatedDefaultSkillNames.contains($0.name)
-        }
-        if loadedSkills.count != skillCount {
-            didChange = true
-        }
 
         loadedSkills = loadedSkills.map { skill in
             guard let defaultSkill = defaultSkillAliases[skill.name] else {

@@ -12,6 +12,7 @@ struct PersistenceScheduler {
     static let immediate = PersistenceScheduler { $0() }
 }
 
+@MainActor
 @Observable
 final class AppStore {
     struct PersistenceIssue: Identifiable {
@@ -20,12 +21,18 @@ final class AppStore {
         let message: String
     }
 
-    private(set) var feedbacks: [Feedback] = []
+    private(set) var feedbacks: [Feedback] = [] {
+        didSet { recomputeFeedbackDerivatives() }
+    }
     private(set) var skills: [Skill] = []
     private(set) var warmup: [WarmupItem] = []
     private(set) var quickPhrases: [String] = []
     private(set) var hasCompletedOnboarding = false
     private(set) var persistenceIssue: PersistenceIssue?
+
+    private(set) var activeFeedbacksScored: [(Feedback, Double)] = []
+    private(set) var activeCountsBySkill: [UUID: Int] = [:]
+    private(set) var feedbackCountsBySkill: [UUID: Int] = [:]
 
     private let feedbackRepository: FeedbackRepository
     private let warmupRepository: WarmupRepository
@@ -65,19 +72,28 @@ final class AppStore {
                 try feedbackRepository.saveSkills(loadedSkills)
             }
 
+            let validSkillIds = Set(loadedSkills.map(\.id))
+            let prunedFeedbacks = loadedFeedbacks.filter { validSkillIds.contains($0.skillId) }
+            let didPruneOrphans = prunedFeedbacks.count != loadedFeedbacks.count
+
             skills = loadedSkills
-            feedbacks = loadedFeedbacks
+            feedbacks = prunedFeedbacks
 
             if seededDefaults {
                 persistSkills()
             }
+            if didPruneOrphans {
+                persistFeedbacks()
+            }
 
-            if !didCompleteOnboarding && !loadedFeedbacks.isEmpty {
+            if !didCompleteOnboarding && !prunedFeedbacks.isEmpty {
                 completeOnboarding()
             }
+            AppLog.lifecycle.info("bootstrap ok skills=\(loadedSkills.count) feedbacks=\(prunedFeedbacks.count) pruned=\(didPruneOrphans)")
         } catch {
             skills = SampleData.defaultSkills()
             feedbacks = []
+            AppLog.persistence.error("bootstrap failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
                 title: "데이터를 불러오지 못했습니다",
                 error: error,
@@ -111,10 +127,6 @@ final class AppStore {
 
     // MARK: - Derived
 
-    var activeFeedbacksScored: [(Feedback, Double)] {
-        FeedbackScoring.sortedActiveWithScores(feedbacks)
-    }
-
     var activeFeedbacks: [Feedback] {
         activeFeedbacksScored.map(\.0)
     }
@@ -122,23 +134,7 @@ final class AppStore {
     var topFeedback: Feedback? { activeFeedbacksScored.first?.0 }
 
     func activeFeedbacksScored(forSkillId skillId: UUID) -> [(Feedback, Double)] {
-        FeedbackScoring.sortedActiveWithScores(feedbacks.filter { $0.skillId == skillId })
-    }
-
-    var activeCountsBySkill: [UUID: Int] {
-        var map: [UUID: Int] = [:]
-        for feedback in feedbacks where feedback.status == .active {
-            map[feedback.skillId, default: 0] += 1
-        }
-        return map
-    }
-
-    var feedbackCountsBySkill: [UUID: Int] {
-        var map: [UUID: Int] = [:]
-        for feedback in feedbacks {
-            map[feedback.skillId, default: 0] += 1
-        }
-        return map
+        activeFeedbacksScored.filter { $0.0.skillId == skillId }
     }
 
     func activeCount(forSkillId skillId: UUID) -> Int {
@@ -147,6 +143,26 @@ final class AppStore {
 
     func feedbackCount(forSkillId skillId: UUID) -> Int {
         feedbackCountsBySkill[skillId] ?? 0
+    }
+
+    private func recomputeFeedbackDerivatives() {
+        activeFeedbacksScored = FeedbackScoring.sortedActiveWithScores(feedbacks)
+        var active: [UUID: Int] = [:]
+        var all: [UUID: Int] = [:]
+        for feedback in feedbacks {
+            all[feedback.skillId, default: 0] += 1
+            if feedback.status == .active {
+                active[feedback.skillId, default: 0] += 1
+            }
+        }
+        activeCountsBySkill = active
+        feedbackCountsBySkill = all
+    }
+
+    func hasSkill(named name: String) -> Bool {
+        let normalizedName = normalizedSkillName(name)
+        guard !normalizedName.isEmpty else { return false }
+        return skills.contains { normalizedSkillName($0.name) == normalizedName }
     }
 
     // MARK: - Feedback intents
@@ -203,11 +219,14 @@ final class AppStore {
 
     // MARK: - Skill intents
 
-    func addSkill(name: String, symbolName: String = "ellipsis.circle") {
+    @discardableResult
+    func addSkill(name: String, symbolName: String = "dumbbell.fill") -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty,
+              !hasSkill(named: trimmed) else { return false }
         skills.append(Skill(name: trimmed, symbolName: symbolName))
         persistSkills()
+        return true
     }
 
     func updateSkill(id: UUID, name: String, symbolName: String) {
@@ -322,7 +341,15 @@ final class AppStore {
 
     func updateQuickPhrases(_ phrases: [String]) {
         quickPhrases = phrases
-        settingsRepository.saveQuickPhrases(phrases)
+        do {
+            try settingsRepository.saveQuickPhrases(phrases)
+        } catch {
+            reportPersistenceIssue(
+                title: "빠른 문구를 저장하지 못했습니다",
+                error: error,
+                recovery: "잠시 후 다시 시도해 주세요."
+            )
+        }
     }
 
     // MARK: - Onboarding
@@ -356,6 +383,11 @@ final class AppStore {
         )
     }
 
+    private func normalizedSkillName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+
     private func persistWarmup() {
         let dict = Dictionary(uniqueKeysWithValues: warmup.map { ($0.id, $0.checked) })
         warmupRepository.save(dict)
@@ -378,7 +410,8 @@ final class AppStore {
             do {
                 try work()
             } catch {
-                DispatchQueue.main.async {
+                AppLog.persistence.error("save failed: \(failureTitle, privacy: .public) — \(error.localizedDescription, privacy: .public)")
+                Task { @MainActor in
                     self?.reportPersistenceIssue(
                         title: failureTitle,
                         error: error,

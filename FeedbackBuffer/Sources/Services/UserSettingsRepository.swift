@@ -32,8 +32,8 @@ final class UserSettingsRepository {
         return saved
     }
 
-    func saveQuickPhrases(_ phrases: [String]) {
-        guard let data = try? encoder.encode(phrases) else { return }
+    func saveQuickPhrases(_ phrases: [String]) throws {
+        let data = try encoder.encode(phrases)
         defaults.set(data, forKey: quickPhrasesKey)
     }
 }

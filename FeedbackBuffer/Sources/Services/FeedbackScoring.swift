@@ -7,8 +7,9 @@ enum FeedbackScoring {
         static let unresolvedWeight = 8.0
         static let ageWeight = 0.7
         static let staleReviewWeight = 1.2
-        static let highTierThreshold = 80.0
-        static let mediumTierThreshold = 50.0
+        static let criticalTierThreshold = 100.0
+        static let highTierThreshold = 60.0
+        static let mediumTierThreshold = 35.0
     }
 
     static func score(for feedback: Feedback, now: Date = .now) -> Double {
@@ -39,10 +40,11 @@ enum FeedbackScoring {
     }
 
     enum Tier {
-        case high, medium, low
+        case critical, high, medium, low
     }
 
     static func tier(for score: Double) -> Tier {
+        if score >= Constants.criticalTierThreshold { return .critical }
         if score >= Constants.highTierThreshold { return .high }
         if score >= Constants.mediumTierThreshold { return .medium }
         return .low

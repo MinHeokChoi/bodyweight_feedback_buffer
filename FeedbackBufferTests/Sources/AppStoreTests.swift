@@ -44,6 +44,7 @@ final class FailingFileStore: FileStore {
     }
 }
 
+@MainActor
 final class AppStoreTests: XCTestCase {
     private var defaults: UserDefaults!
     private let suiteName = "AppStoreTests"
@@ -117,26 +118,27 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(makeStore(fileStore: fileStore).quickPhrases, phrases)
     }
 
-    func test_bootstrapNormalizesDefaultSkillAliases() throws {
+    func test_bootstrapNormalizesDefaultSkillAliasesWithoutDeletingCustomSkills() throws {
         let fileStore = InMemoryFileStore()
         let handstandId = UUID()
         let pullUpsId = UUID()
         let backLeverId = UUID()
+        let otherId = UUID()
         try fileStore.save(
             [
                 Skill(id: pullUpsId, name: "Pull Ups", symbolName: "figure.strengthtraining.traditional"),
                 Skill(id: backLeverId, name: "Back Lever", symbolName: "figure.core.training"),
-                Skill(id: handstandId, name: "물구나무", symbolName: "figure.gymnastics")
+                Skill(id: handstandId, name: "물구나무", symbolName: "figure.gymnastics"),
+                Skill(id: otherId, name: "기타", symbolName: "ellipsis.circle")
             ],
             to: "skills.json"
         )
 
         let store = makeStore(fileStore: fileStore)
 
-        XCTAssertEqual(store.skills.map(\.id), [handstandId, pullUpsId])
-        XCTAssertEqual(store.skills.map(\.name), ["Handstand", "Pull ups"])
-        XCTAssertEqual(store.skills.map(\.symbolName), ["handstand.full", "pull.ups.full"])
-        XCTAssertFalse(store.skills.contains { $0.id == backLeverId })
+        XCTAssertEqual(store.skills.map(\.id), [pullUpsId, backLeverId, handstandId, otherId])
+        XCTAssertEqual(store.skills.map(\.name), ["Pull ups", "Back Lever", "Handstand", "기타"])
+        XCTAssertEqual(store.skills.map(\.symbolName), ["pull.ups.full", "figure.core.training", "handstand.full", "ellipsis.circle"])
     }
 
     func test_bootstrapReportsPersistenceIssueOnLoadFailure() {
@@ -305,6 +307,29 @@ final class AppStoreTests: XCTestCase {
         reloaded.deleteSkill(added.id)
         XCTAssertFalse(reloaded.skills.contains { $0.id == added.id })
         XCTAssertFalse(reloaded.feedbacks.contains { $0.skillId == added.id })
+    }
+
+    func test_addSkillRejectsDuplicateNamesIgnoringCaseAndWhitespace() {
+        let store = makeStore()
+        let beforeCount = store.skills.count
+
+        XCTAssertTrue(store.addSkill(name: "  Back Lever  ", symbolName: "figure.core.training"))
+        XCTAssertFalse(store.addSkill(name: "back lever", symbolName: "figure.gymnastics"))
+
+        XCTAssertEqual(store.skills.count, beforeCount + 1)
+        XCTAssertEqual(store.skills.last?.name, "Back Lever")
+    }
+
+    func test_customSkillWithDeprecatedDefaultNamePersistsAcrossReload() {
+        let fileStore = InMemoryFileStore()
+        let store = makeStore(fileStore: fileStore)
+
+        XCTAssertTrue(store.addSkill(name: "  Back Lever  ", symbolName: "figure.core.training"))
+        let added = store.skills.last!
+
+        let reloaded = makeStore(fileStore: fileStore)
+
+        XCTAssertTrue(reloaded.skills.contains { $0.id == added.id && $0.name == "Back Lever" })
     }
 
     func test_topFeedbackIsHighestScored() {

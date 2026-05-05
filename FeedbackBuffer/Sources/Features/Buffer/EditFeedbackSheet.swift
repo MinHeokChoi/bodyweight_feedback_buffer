@@ -32,33 +32,14 @@ struct EditFeedbackSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-//                Section("기술") {
-//                    SkillMenuPicker(skillId: $skillId, skills: store.skills, currentName: currentSkillName)
-//                }
-                Section {
-                    TextField("예: 골반이 흔들림", text: $title, axis: .vertical)
-                        .lineLimit(1...3)
-                } header: {
-                    Text("빈 공간")
-                }
-
-                Section("Cue") {
-                    TextField("상세 메모", text: $note, axis: .vertical)
-                        .lineLimit(3...8)
-                }
-                
-                Section("범주") {
-                    Picker("범주", selection: $category) {
-                        ForEach(FeedbackCategory.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                Section("중요도") {
-                    ImportancePicker(importance: $importance)
-                }
+                FeedbackFormFields(
+                    title: $title,
+                    note: $note,
+                    category: $category,
+                    importance: $importance,
+                    titlePlaceholder: "예: 골반이 흔들림",
+                    notePlaceholder: "상세 메모"
+                )
             }
             .navigationTitle("피드백 수정")
             .navigationBarTitleDisplayMode(.inline)
@@ -86,6 +67,42 @@ struct EditFeedbackSheet: View {
         store.updateFeedback(updated)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
+    }
+}
+
+struct FeedbackFormFields: View {
+    @Binding var title: String
+    @Binding var note: String
+    @Binding var category: FeedbackCategory
+    @Binding var importance: Int
+    let titlePlaceholder: String
+    let notePlaceholder: String
+
+    var body: some View {
+        Section {
+            TextField(titlePlaceholder, text: $title, axis: .vertical)
+                .lineLimit(1...3)
+        } header: {
+            Text("빈 공간")
+        }
+
+        Section("Cue") {
+            TextField(notePlaceholder, text: $note, axis: .vertical)
+                .lineLimit(3...8)
+        }
+
+        Section("범주") {
+            Picker("범주", selection: $category) {
+                ForEach(FeedbackCategory.allCases) { c in
+                    Text(c.displayName).tag(c)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+
+        Section("중요도") {
+            ImportancePicker(importance: $importance)
+        }
     }
 }
 

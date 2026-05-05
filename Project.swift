@@ -4,7 +4,7 @@ let project = Project(
     name: "FeedbackBuffer",
     organizationName: "julyheuk",
     options: .options(
-        defaultKnownRegions: ["en", "ko"],
+        defaultKnownRegions: ["ko"],
         developmentRegion: "ko"
     ),
     targets: [
@@ -16,6 +16,8 @@ let project = Project(
             deploymentTargets: .iOS("17.0"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "피드백 버퍼",
+                "ITSAppUsesNonExemptEncryption": false,
+                "UIRequiredDeviceCapabilities": ["arm64"],
                 "UILaunchScreen": [
                     "UIColorName": "LaunchBackground",
                     "UIImageName": "LaunchMark"
@@ -25,7 +27,19 @@ let project = Project(
                 ]
             ]),
             sources: ["FeedbackBuffer/Sources/**"],
-            resources: ["FeedbackBuffer/Resources/**"]
+            resources: ["FeedbackBuffer/Resources/**"],
+            settings: .settings(
+                configurations: [
+                    .debug(name: "Debug", settings: [
+                        "CODE_SIGN_IDENTITY": "Apple Development",
+                        "CODE_SIGN_STYLE": "Automatic"
+                    ]),
+                    .release(name: "Release", settings: [
+                        "CODE_SIGN_IDENTITY": "Apple Distribution",
+                        "CODE_SIGN_STYLE": "Automatic"
+                    ])
+                ]
+            )
         ),
         .target(
             name: "FeedbackBufferTests",
