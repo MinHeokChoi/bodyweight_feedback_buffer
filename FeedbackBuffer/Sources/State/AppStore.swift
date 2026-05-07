@@ -30,8 +30,8 @@ final class AppStore {
     private(set) var hasCompletedOnboarding = false
     private(set) var persistenceIssue: PersistenceIssue?
 
-    private(set) var activeFeedbacksScored: [(Feedback, Double)] = []
-    private(set) var activeCountsBySkill: [UUID: Int] = [:]
+    private(set) var unarchivedFeedbacksScored: [(Feedback, Double)] = []
+    private(set) var unarchivedCountsBySkill: [UUID: Int] = [:]
     private(set) var feedbackCountsBySkill: [UUID: Int] = [:]
 
     private let feedbackRepository: FeedbackRepository
@@ -39,6 +39,8 @@ final class AppStore {
     private let settingsRepository: UserSettingsRepository
     private let persistenceScheduler: PersistenceScheduler
     private var currentWarmupDateKey = WarmupDateKey.today()
+
+    private static let feedbackSchemaVersion = 1
 
     init(
         feedbackRepository: FeedbackRepository = FeedbackRepository(),
@@ -76,14 +78,20 @@ final class AppStore {
             let prunedFeedbacks = loadedFeedbacks.filter { validSkillIds.contains($0.skillId) }
             let didPruneOrphans = prunedFeedbacks.count != loadedFeedbacks.count
 
+            let priorSchemaVersion = settingsRepository.loadFeedbackSchemaVersion()
+            let needsMigrationFlush = priorSchemaVersion < Self.feedbackSchemaVersion && !prunedFeedbacks.isEmpty
+
             skills = loadedSkills
             feedbacks = prunedFeedbacks
 
             if seededDefaults {
                 persistSkills()
             }
-            if didPruneOrphans {
+            if didPruneOrphans || needsMigrationFlush {
                 persistFeedbacks()
+            }
+            if priorSchemaVersion < Self.feedbackSchemaVersion {
+                settingsRepository.saveFeedbackSchemaVersion(Self.feedbackSchemaVersion)
             }
 
             if !didCompleteOnboarding && !prunedFeedbacks.isEmpty {
@@ -127,18 +135,18 @@ final class AppStore {
 
     // MARK: - Derived
 
-    var activeFeedbacks: [Feedback] {
-        activeFeedbacksScored.map(\.0)
+    var unarchivedFeedbacks: [Feedback] {
+        unarchivedFeedbacksScored.map(\.0)
     }
 
-    var topFeedback: Feedback? { activeFeedbacksScored.first?.0 }
+    var topFeedback: Feedback? { unarchivedFeedbacksScored.first?.0 }
 
-    func activeFeedbacksScored(forSkillId skillId: UUID) -> [(Feedback, Double)] {
-        activeFeedbacksScored.filter { $0.0.skillId == skillId }
+    func unarchivedFeedbacksScored(forSkillId skillId: UUID) -> [(Feedback, Double)] {
+        unarchivedFeedbacksScored.filter { $0.0.skillId == skillId }
     }
 
-    func activeCount(forSkillId skillId: UUID) -> Int {
-        activeCountsBySkill[skillId] ?? 0
+    func unarchivedCount(forSkillId skillId: UUID) -> Int {
+        unarchivedCountsBySkill[skillId] ?? 0
     }
 
     func feedbackCount(forSkillId skillId: UUID) -> Int {
@@ -146,16 +154,16 @@ final class AppStore {
     }
 
     private func recomputeFeedbackDerivatives() {
-        activeFeedbacksScored = FeedbackScoring.sortedActiveWithScores(feedbacks)
-        var active: [UUID: Int] = [:]
+        unarchivedFeedbacksScored = FeedbackScoring.sortedUnarchivedWithScores(feedbacks)
+        var unarchived: [UUID: Int] = [:]
         var all: [UUID: Int] = [:]
         for feedback in feedbacks {
             all[feedback.skillId, default: 0] += 1
-            if feedback.status == .active {
-                active[feedback.skillId, default: 0] += 1
+            if feedback.archivedAt == nil {
+                unarchived[feedback.skillId, default: 0] += 1
             }
         }
-        activeCountsBySkill = active
+        unarchivedCountsBySkill = unarchived
         feedbackCountsBySkill = all
     }
 
@@ -198,8 +206,15 @@ final class AppStore {
 
     func archive(_ id: UUID) {
         guard let idx = feedbacks.firstIndex(where: { $0.id == id }) else { return }
-        feedbacks[idx].status = .resolved
-        feedbacks[idx].resolvedAt = .now
+        feedbacks[idx].archivedAt = .now
+        feedbacks[idx].updatedAt = .now
+        persistFeedbacks()
+    }
+
+    func unarchive(_ id: UUID) {
+        guard let idx = feedbacks.firstIndex(where: { $0.id == id }) else { return }
+        guard feedbacks[idx].archivedAt != nil else { return }
+        feedbacks[idx].archivedAt = nil
         feedbacks[idx].updatedAt = .now
         persistFeedbacks()
     }

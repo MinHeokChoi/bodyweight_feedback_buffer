@@ -56,15 +56,15 @@ final class FeedbackScoringTests: XCTestCase {
     func test_olderUnreviewedFeedbackBubblesUp() {
         let fresh = makeFeedback(importance: 3, unresolvedCount: 0, daysSinceCreated: 0)
         let stale = makeFeedback(importance: 3, unresolvedCount: 0, daysSinceCreated: 30)
-        let sorted = FeedbackScoring.sortedActive([fresh, stale], now: now)
+        let sorted = FeedbackScoring.sortedUnarchived([fresh, stale], now: now)
         XCTAssertEqual(sorted.first?.id, stale.id)
     }
 
-    func test_resolvedFeedbacksFilteredOut() {
+    func test_archivedFeedbacksFilteredOut() {
         let active = makeFeedback(importance: 3)
-        var resolved = makeFeedback(importance: 5)
-        resolved.status = .resolved
-        let sorted = FeedbackScoring.sortedActive([active, resolved], now: now)
+        var archived = makeFeedback(importance: 5)
+        archived.archivedAt = now
+        let sorted = FeedbackScoring.sortedUnarchived([active, archived], now: now)
         XCTAssertEqual(sorted.count, 1)
         XCTAssertEqual(sorted.first?.id, active.id)
     }

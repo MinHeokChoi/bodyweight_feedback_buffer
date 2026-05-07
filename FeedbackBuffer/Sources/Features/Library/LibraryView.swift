@@ -21,12 +21,19 @@ struct LibraryView: View {
                             .buttonStyle(.borderedProminent)
                     }
                 } else {
-                    let counts = store.activeCountsBySkill
+                    let unarchivedCounts = store.unarchivedCountsBySkill
+                    let allCounts = store.feedbackCountsBySkill
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
                             ForEach(store.skills) { skill in
+                                let activeCount = unarchivedCounts[skill.id] ?? 0
+                                let archivedCount = (allCounts[skill.id] ?? 0) - activeCount
                                 NavigationLink(value: skill) {
-                                    SkillTile(skill: skill, count: counts[skill.id] ?? 0)
+                                    SkillTile(
+                                        skill: skill,
+                                        activeCount: activeCount,
+                                        archivedCount: archivedCount
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -58,26 +65,25 @@ struct LibraryView: View {
 
 private struct SkillTile: View {
     let skill: Skill
-    let count: Int
+    let activeCount: Int
+    let archivedCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 6) {
                 SkillIconView(symbolName: skill.symbolName, size: 32)
                 Spacer()
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.caption.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(.tint, in: Capsule())
+                if activeCount > 0 {
+                    countCapsule(count: activeCount, color: .accentColor)
+                }
+                if archivedCount > 0 {
+                    countCapsule(count: archivedCount, color: .green)
                 }
             }
             Text(skill.name)
                 .font(.headline)
                 .foregroundStyle(.primary)
-            Text(count == 0 ? "쌓인 피드백 없음" : "활성 피드백 \(count)개")
+            Text(footerText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -86,7 +92,34 @@ private struct SkillTile: View {
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(skill.name)
-        .accessibilityValue(count == 0 ? "활성 피드백 없음" : "활성 피드백 \(count)개")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private func countCapsule(count: Int, color: Color) -> some View {
+        Text("\(count)")
+            .font(.caption.weight(.bold).monospacedDigit())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color, in: Capsule())
+    }
+
+    private var footerText: String {
+        switch (activeCount, archivedCount) {
+        case (0, 0): return "쌓인 피드백 없음"
+        case (let a, 0): return "활성 피드백 \(a)개"
+        case (0, let r): return "보관 \(r)개"
+        case (let a, let r): return "활성 \(a)개 · 보관 \(r)개"
+        }
+    }
+
+    private var accessibilityValue: String {
+        switch (activeCount, archivedCount) {
+        case (0, 0): return "활성 피드백 없음"
+        case (let a, 0): return "활성 피드백 \(a)개"
+        case (0, let r): return "보관된 피드백 \(r)개"
+        case (let a, let r): return "활성 \(a)개, 보관 \(r)개"
+        }
     }
 }
 

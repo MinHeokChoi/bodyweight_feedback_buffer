@@ -93,11 +93,16 @@ struct FeedbackCardView: View {
     }
 
     private var metaRow: some View {
-        HStack(spacing: 14) {
-            ImportanceStars(importance: feedback.importance)
-            metaChip(systemImage: "exclamationmark.bubble", text: "연습 \(feedback.unresolvedCount)회")
-            metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
-            CategoryChip(category: feedback.category)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 14) {
+                ImportanceStars(importance: feedback.importance)
+                metaChip(systemImage: "exclamationmark.bubble", text: "연습 \(feedback.unresolvedCount)회")
+                metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
+            }
+            HStack(spacing: 14) {
+                CategoryChip(category: feedback.category)
+                PhaseChip(phase: feedback.phase)
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -193,5 +198,50 @@ struct CategoryChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+struct PhaseChip: View {
+    let phase: FeedbackPhase
+
+    var body: some View {
+        if let label = displayLabel {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                Text(label)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .foregroundStyle(tint)
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private var displayLabel: String? {
+        switch phase {
+        case .new: "새 피드백"
+        case .practicing: "연습 시작"
+        case .adapting: "적응 중"
+        case .archived: nil
+        }
+    }
+
+    private var systemImage: String {
+        switch phase {
+        case .new: "sparkles"
+        case .practicing: "figure.run"
+        case .adapting: "checkmark.seal"
+        case .archived: "archivebox"
+        }
+    }
+
+    private var tint: Color {
+        switch phase {
+        case .new: .secondary
+        case .practicing: .accentColor
+        case .adapting: .green
+        case .archived: .secondary
+        }
     }
 }

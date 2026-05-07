@@ -4,6 +4,7 @@ final class UserSettingsRepository {
     private let defaults: UserDefaults
     private let hasCompletedOnboardingKey = "hasCompletedOnboarding_v1"
     private let quickPhrasesKey = "quickPhrases_v1"
+    private let feedbackSchemaVersionKey = "feedbacks.schemaVersion_v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -35,5 +36,13 @@ final class UserSettingsRepository {
     func saveQuickPhrases(_ phrases: [String]) throws {
         let data = try encoder.encode(phrases)
         defaults.set(data, forKey: quickPhrasesKey)
+    }
+
+    func loadFeedbackSchemaVersion() -> Int {
+        defaults.integer(forKey: feedbackSchemaVersionKey)
+    }
+
+    func saveFeedbackSchemaVersion(_ version: Int) {
+        defaults.set(version, forKey: feedbackSchemaVersionKey)
     }
 }

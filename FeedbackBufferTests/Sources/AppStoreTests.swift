@@ -24,6 +24,14 @@ final class InMemoryFileStore: FileStore {
         let data = try encoder.encode(value)
         storage[filename] = data
     }
+
+    func seed(_ data: Data, to filename: String) {
+        storage[filename] = data
+    }
+
+    func rawData(for filename: String) -> Data? {
+        storage[filename]
+    }
 }
 
 final class FailingFileStore: FileStore {
@@ -187,18 +195,132 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.feedbacks.count, before)
     }
 
-    func test_archiveRemovesFromActive() {
+    func test_archiveRemovesFromUnarchived() {
         let store = makeStore()
         let target = addFeedback(to: store)
-        let beforeCount = store.activeFeedbacks.count
+        let beforeCount = store.unarchivedFeedbacks.count
 
         store.archive(target.id)
 
         let updated = store.feedbacks.first { $0.id == target.id }!
-        XCTAssertEqual(updated.status, .resolved)
-        XCTAssertNotNil(updated.resolvedAt)
-        XCTAssertEqual(store.activeFeedbacks.count, beforeCount - 1)
-        XCTAssertFalse(store.activeFeedbacks.contains { $0.id == target.id })
+        XCTAssertNotNil(updated.archivedAt)
+        XCTAssertEqual(updated.phase, .archived)
+        XCTAssertEqual(store.unarchivedFeedbacks.count, beforeCount - 1)
+        XCTAssertFalse(store.unarchivedFeedbacks.contains { $0.id == target.id })
+    }
+
+    func test_unarchiveRestoresWithoutResettingPracticeCount() {
+        let store = makeStore()
+        let target = addFeedback(to: store)
+        store.markPracticed(target.id)
+        store.markPracticed(target.id)
+        store.archive(target.id)
+        XCTAssertFalse(store.unarchivedFeedbacks.contains { $0.id == target.id })
+
+        store.unarchive(target.id)
+
+        let updated = store.feedbacks.first { $0.id == target.id }!
+        XCTAssertNil(updated.archivedAt)
+        XCTAssertEqual(updated.unresolvedCount, 2)
+        XCTAssertEqual(updated.phase, .practicing)
+        XCTAssertTrue(store.unarchivedFeedbacks.contains { $0.id == target.id })
+    }
+
+    func test_phaseTransitions() {
+        let store = makeStore()
+        let target = addFeedback(to: store)
+
+        func phase() -> FeedbackPhase? {
+            store.feedbacks.first(where: { $0.id == target.id })?.phase
+        }
+
+        XCTAssertEqual(phase(), .new)
+        store.markPracticed(target.id)
+        XCTAssertEqual(phase(), .practicing)
+        store.markPracticed(target.id)
+        XCTAssertEqual(phase(), .practicing)
+        store.markPracticed(target.id)
+        XCTAssertEqual(phase(), .adapting)
+        store.archive(target.id)
+        XCTAssertEqual(phase(), .archived)
+        store.unarchive(target.id)
+        XCTAssertEqual(phase(), .adapting)
+    }
+
+    func test_legacyResolvedAtKeyMigratesToArchivedAtAndPersistsNewSchema() throws {
+        let fileStore = InMemoryFileStore()
+        let skillId = UUID()
+        let feedbackId = UUID()
+        let skillsJson = """
+        [{"id":"\(skillId.uuidString)","name":"Handstand","symbolName":"figure.gymnastics"}]
+        """
+        let feedbacksJson = """
+        [{
+            "id": "\(feedbackId.uuidString)",
+            "skillId": "\(skillId.uuidString)",
+            "skillName": "Handstand",
+            "title": "라인 유지",
+            "note": "",
+            "importance": 3,
+            "unresolvedCount": 2,
+            "category": "skill",
+            "createdAt": "2025-01-01T00:00:00Z",
+            "updatedAt": "2025-01-05T00:00:00Z",
+            "lastReviewedAt": "2025-01-05T00:00:00Z",
+            "resolvedAt": "2025-01-05T00:00:00Z",
+            "status": "resolved"
+        }]
+        """
+        fileStore.seed(Data(skillsJson.utf8), to: "skills.json")
+        fileStore.seed(Data(feedbacksJson.utf8), to: "feedbacks.json")
+
+        let store = makeStore(fileStore: fileStore)
+
+        let migrated = store.feedbacks.first { $0.id == feedbackId }
+        XCTAssertNotNil(migrated)
+        XCTAssertNotNil(migrated?.archivedAt)
+        XCTAssertEqual(migrated?.phase, .archived)
+        XCTAssertFalse(store.unarchivedFeedbacks.contains { $0.id == feedbackId })
+
+        let rewritten = fileStore.rawData(for: "feedbacks.json")
+        XCTAssertNotNil(rewritten)
+        let rewrittenString = String(data: rewritten!, encoding: .utf8) ?? ""
+        XCTAssertTrue(rewrittenString.contains("archivedAt"))
+        XCTAssertFalse(rewrittenString.contains("\"status\""))
+        XCTAssertFalse(rewrittenString.contains("\"resolvedAt\""))
+    }
+
+    func test_legacyResolvedStatusWithoutResolvedAtFallsBackToUpdatedAt() throws {
+        let fileStore = InMemoryFileStore()
+        let skillId = UUID()
+        let feedbackId = UUID()
+        let skillsJson = """
+        [{"id":"\(skillId.uuidString)","name":"Handstand","symbolName":"figure.gymnastics"}]
+        """
+        let feedbacksJson = """
+        [{
+            "id": "\(feedbackId.uuidString)",
+            "skillId": "\(skillId.uuidString)",
+            "skillName": "Handstand",
+            "title": "라인 유지",
+            "note": "",
+            "importance": 3,
+            "unresolvedCount": 0,
+            "category": "skill",
+            "createdAt": "2025-01-01T00:00:00Z",
+            "updatedAt": "2025-01-05T00:00:00Z",
+            "status": "resolved"
+        }]
+        """
+        fileStore.seed(Data(skillsJson.utf8), to: "skills.json")
+        fileStore.seed(Data(feedbacksJson.utf8), to: "feedbacks.json")
+
+        let store = makeStore(fileStore: fileStore)
+
+        let migrated = store.feedbacks.first { $0.id == feedbackId }
+        let formatter = ISO8601DateFormatter()
+        XCTAssertEqual(migrated?.archivedAt, formatter.date(from: "2025-01-05T00:00:00Z"))
+        XCTAssertEqual(migrated?.phase, .archived)
     }
 
     func test_markPracticedIncrementsCountAndUpdatesReview() {
@@ -339,7 +461,7 @@ final class AppStoreTests: XCTestCase {
         let top = store.topFeedback
         XCTAssertNotNil(top)
         let topScore = FeedbackScoring.score(for: top!)
-        for f in store.activeFeedbacks {
+        for f in store.unarchivedFeedbacks {
             XCTAssertLessThanOrEqual(FeedbackScoring.score(for: f), topScore)
         }
     }

@@ -24,19 +24,19 @@ enum FeedbackScoring {
         return (raw * 10).rounded() / 10
     }
 
-    /// Computes each active feedback's score once, then sorts by precomputed score (descending).
-    static func sortedActiveWithScores(_ feedbacks: [Feedback], now: Date = .now) -> [(Feedback, Double)] {
+    /// Computes each unarchived feedback's score once, then sorts by precomputed score (descending).
+    static func sortedUnarchivedWithScores(_ feedbacks: [Feedback], now: Date = .now) -> [(Feedback, Double)] {
         var scored: [(Feedback, Double)] = []
         scored.reserveCapacity(feedbacks.count)
-        for feedback in feedbacks where feedback.status == .active {
+        for feedback in feedbacks where feedback.archivedAt == nil {
             scored.append((feedback, score(for: feedback, now: now)))
         }
         scored.sort { $0.1 > $1.1 }
         return scored
     }
 
-    static func sortedActive(_ feedbacks: [Feedback], now: Date = .now) -> [Feedback] {
-        sortedActiveWithScores(feedbacks, now: now).map(\.0)
+    static func sortedUnarchived(_ feedbacks: [Feedback], now: Date = .now) -> [Feedback] {
+        sortedUnarchivedWithScores(feedbacks, now: now).map(\.0)
     }
 
     enum Tier {

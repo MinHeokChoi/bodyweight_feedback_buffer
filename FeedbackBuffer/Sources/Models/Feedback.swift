@@ -4,11 +4,6 @@ private enum FeedbackDateConstants {
     static let secondsPerDay: TimeInterval = 86_400
 }
 
-enum FeedbackStatus: String, Codable, Hashable {
-    case active
-    case resolved
-}
-
 enum FeedbackCategory: String, Codable, Hashable, CaseIterable, Identifiable {
     case physical
     case skill
@@ -30,6 +25,13 @@ enum FeedbackCategory: String, Codable, Hashable, CaseIterable, Identifiable {
     }
 }
 
+enum FeedbackPhase: Hashable {
+    case new
+    case practicing
+    case adapting
+    case archived
+}
+
 struct Feedback: Identifiable, Codable, Hashable {
     let id: UUID
     var skillId: UUID
@@ -37,13 +39,13 @@ struct Feedback: Identifiable, Codable, Hashable {
     var title: String
     var note: String
     var importance: Int
+    /// 연습 횟수. 옛 스키마에서는 "미해결 횟수"였으나 1.0.1부터 의미를 재해석했고 키 이름은 호환성 위해 유지한다.
     var unresolvedCount: Int
     var category: FeedbackCategory
     let createdAt: Date
     var updatedAt: Date
     var lastReviewedAt: Date?
-    var resolvedAt: Date?
-    var status: FeedbackStatus
+    var archivedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -57,8 +59,7 @@ struct Feedback: Identifiable, Codable, Hashable {
         createdAt: Date = .now,
         updatedAt: Date = .now,
         lastReviewedAt: Date? = nil,
-        resolvedAt: Date? = nil,
-        status: FeedbackStatus = .active
+        archivedAt: Date? = nil
     ) {
         self.id = id
         self.skillId = skillId
@@ -71,8 +72,7 @@ struct Feedback: Identifiable, Codable, Hashable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastReviewedAt = lastReviewedAt
-        self.resolvedAt = resolvedAt
-        self.status = status
+        self.archivedAt = archivedAt
     }
 
     var referenceDate: Date { lastReviewedAt ?? createdAt }
@@ -85,7 +85,26 @@ struct Feedback: Identifiable, Codable, Hashable {
     var daysSinceCreated: Int { daysSince(createdAt) }
     var daysSinceLastReviewed: Int { daysSince(referenceDate) }
 
-    // Custom decoder so existing JSON without `category` defaults to `.skill`.
+    /// 임계값(3)은 이 한 곳에만 정의한다.
+    var phase: FeedbackPhase {
+        if archivedAt != nil { return .archived }
+        switch max(0, unresolvedCount) {
+        case 0: return .new
+        case 1...2: return .practicing
+        default: return .adapting
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, skillId, skillName, title, note
+        case importance, unresolvedCount, category
+        case createdAt, updatedAt, lastReviewedAt, archivedAt
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
+        case resolvedAt, status
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try c.decode(UUID.self, forKey: .id)
@@ -94,12 +113,39 @@ struct Feedback: Identifiable, Codable, Hashable {
         self.title = try c.decode(String.self, forKey: .title)
         self.note = try c.decode(String.self, forKey: .note)
         self.importance = try c.decode(Int.self, forKey: .importance)
-        self.unresolvedCount = try c.decode(Int.self, forKey: .unresolvedCount)
+        self.unresolvedCount = max(0, try c.decode(Int.self, forKey: .unresolvedCount))
         self.category = try c.decodeIfPresent(FeedbackCategory.self, forKey: .category) ?? .skill
         self.createdAt = try c.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try c.decode(Date.self, forKey: .updatedAt)
         self.lastReviewedAt = try c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
-        self.resolvedAt = try c.decodeIfPresent(Date.self, forKey: .resolvedAt)
-        self.status = try c.decode(FeedbackStatus.self, forKey: .status)
+
+        if let archived = try c.decodeIfPresent(Date.self, forKey: .archivedAt) {
+            self.archivedAt = archived
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+            if let resolvedAt = try legacy.decodeIfPresent(Date.self, forKey: .resolvedAt) {
+                self.archivedAt = resolvedAt
+            } else if (try? legacy.decodeIfPresent(String.self, forKey: .status)) == "resolved" {
+                self.archivedAt = self.updatedAt
+            } else {
+                self.archivedAt = nil
+            }
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(skillId, forKey: .skillId)
+        try c.encode(skillName, forKey: .skillName)
+        try c.encode(title, forKey: .title)
+        try c.encode(note, forKey: .note)
+        try c.encode(importance, forKey: .importance)
+        try c.encode(unresolvedCount, forKey: .unresolvedCount)
+        try c.encode(category, forKey: .category)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(updatedAt, forKey: .updatedAt)
+        try c.encodeIfPresent(lastReviewedAt, forKey: .lastReviewedAt)
+        try c.encodeIfPresent(archivedAt, forKey: .archivedAt)
     }
 }

@@ -66,7 +66,7 @@ struct BufferView: View {
 
     @ViewBuilder
     private var content: some View {
-        let scored = store.activeFeedbacksScored
+        let scored = store.unarchivedFeedbacksScored
         let filtered = scored.filter { isVisible($0.0.category) }
         VStack(spacing: 0) {
             categoryFilterBar

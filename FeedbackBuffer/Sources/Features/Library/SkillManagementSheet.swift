@@ -52,7 +52,7 @@ struct SkillManagementSheet: View {
                 }
 
                 Section("기술 순서") {
-                    let activeCounts = store.activeCountsBySkill
+                    let activeCounts = store.unarchivedCountsBySkill
                     ForEach(store.skills) { skill in
                         row(for: skill, activeCount: activeCounts[skill.id] ?? 0)
                     }
