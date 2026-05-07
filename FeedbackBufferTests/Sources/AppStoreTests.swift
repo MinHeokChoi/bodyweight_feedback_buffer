@@ -402,6 +402,175 @@ final class AppStoreTests: XCTestCase {
         XCTAssertFalse(reloaded.warmup.contains { $0.id == added.id })
     }
 
+    // MARK: - Warmup sessions (multi-session)
+
+    func test_bootstrapSeedsDefaultWarmupSession() {
+        let store = makeStore()
+
+        XCTAssertEqual(store.warmupSessions.count, 1)
+        XCTAssertEqual(store.warmupSessions.first?.name, DefaultWarmupSession.initialName)
+        XCTAssertEqual(store.selectedWarmupSessionId, store.warmupSessions.first?.id)
+        XCTAssertEqual(store.defaultWarmupSessionId, store.warmupSessions.first?.id)
+        XCTAssertTrue(store.isCurrentSessionDefault)
+        XCTAssertEqual(store.warmup.map(\.id), DefaultWarmup.items.map(\.id))
+    }
+
+    func test_bootstrapMigratesLegacyRoutineAndTodayChecks() throws {
+        let legacyItems = [
+            WarmupItem(id: "legacy_one", label: "레거시 1"),
+            WarmupItem(id: "legacy_two", label: "레거시 2")
+        ]
+        let routineData = try JSONEncoder().encode(legacyItems)
+        defaults.set(routineData, forKey: "warmupRoutine_v1")
+        defaults.set(["legacy_one": true], forKey: "warmup_\(WarmupDateKey.today())")
+
+        let store = makeStore()
+
+        XCTAssertEqual(store.warmupSessions.count, 1)
+        XCTAssertEqual(store.warmupSessions[0].items.map(\.id), ["legacy_one", "legacy_two"])
+        XCTAssertTrue(store.warmup.first { $0.id == "legacy_one" }?.checked == true)
+        XCTAssertTrue(store.warmup.first { $0.id == "legacy_two" }?.checked == false)
+        XCTAssertNotNil(defaults.data(forKey: "warmupSessions_v1"))
+        XCTAssertNotNil(defaults.string(forKey: "warmupSelectedSessionId_v1"))
+        XCTAssertNotNil(defaults.string(forKey: "warmupDefaultSessionId_v1"))
+    }
+
+    func test_addWarmupSessionAppendsAndAutoSelects() {
+        let store = makeStore()
+        let beforeCount = store.warmupSessions.count
+
+        let new = store.addWarmupSession(
+            name: "  공원 웜업  ",
+            items: [WarmupItem(id: "park_1", label: "달리기")]
+        )
+
+        XCTAssertEqual(store.warmupSessions.count, beforeCount + 1)
+        XCTAssertEqual(new.name, "공원 웜업")
+        XCTAssertEqual(store.selectedWarmupSessionId, new.id)
+        XCTAssertEqual(store.warmup.map(\.id), ["park_1"])
+        XCTAssertFalse(store.isCurrentSessionDefault)
+    }
+
+    func test_renameWarmupSessionTrimsAndPersists() {
+        let fileStore = InMemoryFileStore()
+        let store = makeStore(fileStore: fileStore)
+        let target = store.warmupSessions.first!
+
+        store.renameWarmupSession(id: target.id, name: "  내 웜업  ")
+        XCTAssertEqual(store.warmupSessions.first?.name, "내 웜업")
+
+        let reloaded = makeStore(fileStore: fileStore)
+        XCTAssertEqual(reloaded.warmupSessions.first?.name, "내 웜업")
+    }
+
+    func test_renameWarmupSessionRejectsBlank() {
+        let store = makeStore()
+        let target = store.warmupSessions.first!
+        let originalName = target.name
+
+        store.renameWarmupSession(id: target.id, name: "   ")
+
+        XCTAssertEqual(store.warmupSessions.first?.name, originalName)
+    }
+
+    func test_deleteWarmupSessionRefusesLastSession() {
+        let store = makeStore()
+        let only = store.warmupSessions.first!
+
+        store.deleteWarmupSession(only.id)
+
+        XCTAssertEqual(store.warmupSessions.count, 1)
+        XCTAssertEqual(store.selectedWarmupSessionId, only.id)
+    }
+
+    func test_deleteSelectedWarmupSessionSwitchesToFirst() {
+        let store = makeStore()
+        let original = store.warmupSessions.first!
+        let added = store.addWarmupSession(name: "공원", items: [])
+        XCTAssertEqual(store.selectedWarmupSessionId, added.id)
+
+        store.deleteWarmupSession(added.id)
+
+        XCTAssertEqual(store.warmupSessions.count, 1)
+        XCTAssertEqual(store.selectedWarmupSessionId, original.id)
+        XCTAssertEqual(store.warmup.map(\.id), DefaultWarmup.items.map(\.id))
+    }
+
+    func test_deleteWarmupSessionPurgesPerSessionCheckKeys() {
+        let store = makeStore()
+        let added = store.addWarmupSession(
+            name: "공원",
+            items: [WarmupItem(id: "park_a", label: "A")]
+        )
+        store.toggleWarmup("park_a")
+        let prefix = "warmup_\(added.id.uuidString)_"
+        XCTAssertTrue(defaults.dictionaryRepresentation().keys.contains { $0.hasPrefix(prefix) })
+
+        store.deleteWarmupSession(added.id)
+
+        XCTAssertFalse(defaults.dictionaryRepresentation().keys.contains { $0.hasPrefix(prefix) })
+    }
+
+    func test_selectWarmupSessionPreservesPerSessionChecks() {
+        let store = makeStore()
+        let original = store.warmupSessions.first!
+        store.toggleWarmup(store.warmup.first!.id)
+        let originalCheckedId = store.warmup.first!.id
+
+        let added = store.addWarmupSession(
+            name: "공원",
+            items: [WarmupItem(id: "park_x", label: "X")]
+        )
+        XCTAssertFalse(store.warmup.contains { $0.checked })
+
+        store.selectWarmupSession(original.id)
+        XCTAssertTrue(store.warmup.first { $0.id == originalCheckedId }?.checked == true)
+
+        store.selectWarmupSession(added.id)
+        XCTAssertFalse(store.warmup.contains { $0.checked })
+    }
+
+    func test_setWarmupCheckedIsIdempotent() {
+        let store = makeStore()
+        let target = store.warmup.first!
+
+        store.setWarmupChecked(target.id, checked: true)
+        XCTAssertTrue(store.warmup.first { $0.id == target.id }?.checked == true)
+
+        store.setWarmupChecked(target.id, checked: true)
+        XCTAssertTrue(store.warmup.first { $0.id == target.id }?.checked == true)
+
+        store.setWarmupChecked(target.id, checked: false)
+        XCTAssertFalse(store.warmup.first { $0.id == target.id }?.checked == true)
+    }
+
+    func test_resetWarmupRoutineOnlyAffectsDefaultSession() {
+        let store = makeStore()
+        let added = store.addWarmupSession(
+            name: "공원",
+            items: [WarmupItem(id: "park_a", label: "A")]
+        )
+        let beforeItems = store.warmupSessions.first { $0.id == added.id }?.items.map(\.id)
+
+        store.resetWarmupRoutine()
+
+        XCTAssertEqual(store.warmupSessions.first { $0.id == added.id }?.items.map(\.id), beforeItems)
+        XCTAssertEqual(store.warmup.map(\.id), beforeItems)
+
+        if let defaultId = store.defaultWarmupSessionId {
+            store.selectWarmupSession(defaultId)
+            store.toggleWarmup(store.warmup.first!.id)
+            XCTAssertTrue(store.warmup.contains { $0.checked })
+
+            store.resetWarmupRoutine()
+
+            XCTAssertEqual(store.warmup.map(\.id), DefaultWarmup.items.map(\.id))
+            XCTAssertFalse(store.warmup.contains { $0.checked })
+        } else {
+            XCTFail("default session id should be set after bootstrap")
+        }
+    }
+
     func test_skillMutationsPersistAndSyncFeedbackNames() {
         let fileStore = InMemoryFileStore()
         let store = makeStore(fileStore: fileStore)

@@ -26,6 +26,9 @@ final class AppStore {
     }
     private(set) var skills: [Skill] = []
     private(set) var warmup: [WarmupItem] = []
+    private(set) var warmupSessions: [WarmupSession] = []
+    private(set) var selectedWarmupSessionId: UUID?
+    private(set) var defaultWarmupSessionId: UUID?
     private(set) var quickPhrases: [String] = []
     private(set) var hasCompletedOnboarding = false
     private(set) var persistenceIssue: PersistenceIssue?
@@ -109,24 +112,68 @@ final class AppStore {
             )
         }
 
+        bootstrapWarmupSessions()
         warmup = loadWarmup(for: .now)
     }
 
-    private func loadWarmup(for date: Date) -> [WarmupItem] {
-        let routine: [WarmupItem]
+    private func bootstrapWarmupSessions() {
         do {
-            routine = try warmupRepository.loadRoutine() ?? DefaultWarmup.items
+            if let sessions = try warmupRepository.loadSessions(), !sessions.isEmpty {
+                warmupSessions = sessions
+                let storedSelected = warmupRepository.loadSelectedSessionId()
+                selectedWarmupSessionId = sessions.contains(where: { $0.id == storedSelected })
+                    ? storedSelected
+                    : sessions.first?.id
+                let storedDefault = warmupRepository.loadDefaultSessionId()
+                defaultWarmupSessionId = sessions.contains(where: { $0.id == storedDefault })
+                    ? storedDefault
+                    : nil
+                return
+            }
         } catch {
-            routine = DefaultWarmup.items
+            AppLog.persistence.error("warmup sessions load failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "웜업 루틴을 불러오지 못했습니다",
+                title: "웜업 세션을 불러오지 못했습니다",
                 error: error,
-                recovery: "기본 웜업 루틴으로 표시합니다."
+                recovery: "기본 웜업 세션으로 시작합니다."
             )
         }
 
-        let saved = warmupRepository.load(for: date)
-        return routine.map { base in
+        let legacyRoutine: [WarmupItem]
+        do {
+            legacyRoutine = try warmupRepository.legacyLoadRoutine() ?? DefaultWarmup.items
+        } catch {
+            legacyRoutine = DefaultWarmup.items
+        }
+        let normalizedItems = legacyRoutine.map { WarmupItem(id: $0.id, label: $0.label) }
+        let initialSession = WarmupSession(name: DefaultWarmupSession.initialName, items: normalizedItems)
+        warmupSessions = [initialSession]
+        selectedWarmupSessionId = initialSession.id
+        defaultWarmupSessionId = initialSession.id
+
+        let legacyDaily = warmupRepository.legacyLoadDailyState(for: .now)
+        if !legacyDaily.isEmpty {
+            warmupRepository.save(legacyDaily, sessionId: initialSession.id, for: .now)
+        }
+
+        do {
+            try warmupRepository.saveSessions(warmupSessions)
+        } catch {
+            AppLog.persistence.error("warmup sessions seed save failed: \(error.localizedDescription, privacy: .public)")
+            reportPersistenceIssue(
+                title: "웜업 세션을 저장하지 못했습니다",
+                error: error,
+                recovery: "기본 세션은 메모리에서 사용할 수 있어요. 다시 시도하면 저장됩니다."
+            )
+        }
+        warmupRepository.saveSelectedSessionId(initialSession.id)
+        warmupRepository.saveDefaultSessionId(initialSession.id)
+    }
+
+    private func loadWarmup(for date: Date) -> [WarmupItem] {
+        guard let session = currentWarmupSession else { return [] }
+        let saved = warmupRepository.load(sessionId: session.id, for: date)
+        return session.items.map { base in
             var item = base
             item.checked = saved[base.id] ?? false
             return item
@@ -286,53 +333,133 @@ final class AppStore {
 
     // MARK: - Warmup intents
 
+    var currentWarmupSession: WarmupSession? {
+        guard let id = selectedWarmupSessionId else { return nil }
+        return warmupSessions.first { $0.id == id }
+    }
+
+    var isCurrentSessionDefault: Bool {
+        guard let selectedWarmupSessionId, let defaultWarmupSessionId else { return false }
+        return selectedWarmupSessionId == defaultWarmupSessionId
+    }
+
     func toggleWarmup(_ id: String) {
         guard let idx = warmup.firstIndex(where: { $0.id == id }) else { return }
         warmup[idx].checked.toggle()
-        persistWarmup()
+        persistWarmupChecks()
+    }
+
+    func setWarmupChecked(_ id: String, checked: Bool) {
+        guard let idx = warmup.firstIndex(where: { $0.id == id }) else { return }
+        guard warmup[idx].checked != checked else { return }
+        warmup[idx].checked = checked
+        persistWarmupChecks()
     }
 
     func resetWarmupToday() {
         warmup = warmup.map {
             WarmupItem(id: $0.id, label: $0.label)
         }
-        warmupRepository.reset()
+        guard let sessionId = selectedWarmupSessionId else { return }
+        warmupRepository.reset(sessionId: sessionId, for: .now)
     }
 
     func addWarmupItem(label: String) {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        warmup.append(WarmupItem(id: "custom_\(UUID().uuidString)", label: trimmed))
-        persistWarmupRoutine()
+        guard !trimmed.isEmpty,
+              let sessionIdx = currentSessionIndex() else { return }
+        let item = WarmupItem(id: "custom_\(UUID().uuidString)", label: trimmed)
+        warmupSessions[sessionIdx].items.append(item)
+        warmup.append(item)
+        persistWarmupSessions()
     }
 
     func updateWarmupItem(id: String, label: String) {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
-              let idx = warmup.firstIndex(where: { $0.id == id }) else { return }
-        warmup[idx].label = trimmed
-        persistWarmupRoutine()
+              let sessionIdx = currentSessionIndex(),
+              let itemIdx = warmupSessions[sessionIdx].items.firstIndex(where: { $0.id == id }) else { return }
+        warmupSessions[sessionIdx].items[itemIdx].label = trimmed
+        if let warmupIdx = warmup.firstIndex(where: { $0.id == id }) {
+            warmup[warmupIdx].label = trimmed
+        }
+        persistWarmupSessions()
     }
 
     func deleteWarmupItem(_ id: String) {
-        let beforeCount = warmup.count
+        guard let sessionIdx = currentSessionIndex() else { return }
+        let beforeCount = warmupSessions[sessionIdx].items.count
+        warmupSessions[sessionIdx].items.removeAll { $0.id == id }
+        guard warmupSessions[sessionIdx].items.count != beforeCount else { return }
         warmup.removeAll { $0.id == id }
-        guard warmup.count != beforeCount else { return }
-        persistWarmupRoutine()
-        persistWarmup()
+        persistWarmupSessions()
+        persistWarmupChecks()
     }
 
     func moveWarmupItem(fromOffsets source: IndexSet, toOffset destination: Int) {
-        guard !source.isEmpty else { return }
+        guard !source.isEmpty, let sessionIdx = currentSessionIndex() else { return }
+        moveItems(&warmupSessions[sessionIdx].items, fromOffsets: source, toOffset: destination)
         moveItems(&warmup, fromOffsets: source, toOffset: destination)
-        persistWarmupRoutine()
-        persistWarmup()
+        persistWarmupSessions()
+        persistWarmupChecks()
     }
 
     func resetWarmupRoutine() {
+        guard isCurrentSessionDefault, let sessionIdx = currentSessionIndex() else { return }
+        warmupSessions[sessionIdx].items = DefaultWarmup.items
         warmup = DefaultWarmup.items
-        warmupRepository.resetRoutine()
-        warmupRepository.reset()
+        persistWarmupSessions()
+        warmupRepository.reset(sessionId: warmupSessions[sessionIdx].id, for: .now)
+    }
+
+    @discardableResult
+    func addWarmupSession(name: String, items: [WarmupItem]) -> WarmupSession {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = trimmedName.isEmpty ? "새 웜업" : trimmedName
+        let normalizedItems = items.map { WarmupItem(id: $0.id, label: $0.label) }
+        let session = WarmupSession(name: resolvedName, items: normalizedItems)
+        warmupSessions.append(session)
+        persistWarmupSessions()
+        selectWarmupSession(session.id)
+        return session
+    }
+
+    func renameWarmupSession(id: UUID, name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let idx = warmupSessions.firstIndex(where: { $0.id == id }) else { return }
+        guard warmupSessions[idx].name != trimmed else { return }
+        warmupSessions[idx].name = trimmed
+        persistWarmupSessions()
+    }
+
+    func deleteWarmupSession(_ id: UUID) {
+        guard warmupSessions.count > 1,
+              let idx = warmupSessions.firstIndex(where: { $0.id == id }) else { return }
+        warmupSessions.remove(at: idx)
+        warmupRepository.deleteAllCheckStates(forSessionId: id)
+        if selectedWarmupSessionId == id {
+            let nextId = warmupSessions.first?.id
+            selectedWarmupSessionId = nextId
+            if let nextId {
+                warmupRepository.saveSelectedSessionId(nextId)
+            }
+            warmup = loadWarmup(for: .now)
+        }
+        persistWarmupSessions()
+    }
+
+    func selectWarmupSession(_ id: UUID) {
+        guard warmupSessions.contains(where: { $0.id == id }) else { return }
+        guard selectedWarmupSessionId != id else { return }
+        selectedWarmupSessionId = id
+        warmupRepository.saveSelectedSessionId(id)
+        warmup = loadWarmup(for: .now)
+    }
+
+    private func currentSessionIndex() -> Int? {
+        guard let id = selectedWarmupSessionId else { return nil }
+        return warmupSessions.firstIndex { $0.id == id }
     }
 
     var warmupCompletionRatio: Double {
@@ -403,17 +530,18 @@ final class AppStore {
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
-    private func persistWarmup() {
+    private func persistWarmupChecks() {
+        guard let sessionId = selectedWarmupSessionId else { return }
         let dict = Dictionary(uniqueKeysWithValues: warmup.map { ($0.id, $0.checked) })
-        warmupRepository.save(dict)
+        warmupRepository.save(dict, sessionId: sessionId, for: .now)
     }
 
-    private func persistWarmupRoutine() {
-        let snapshot = warmup
+    private func persistWarmupSessions() {
+        let snapshot = warmupSessions
         let repo = warmupRepository
         scheduleSave(
-            { try repo.saveRoutine(snapshot) },
-            failureTitle: "웜업 루틴을 저장하지 못했습니다"
+            { try repo.saveSessions(snapshot) },
+            failureTitle: "웜업 세션을 저장하지 못했습니다"
         )
     }
 

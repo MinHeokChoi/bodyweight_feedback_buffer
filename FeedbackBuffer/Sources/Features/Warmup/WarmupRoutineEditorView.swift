@@ -43,11 +43,13 @@ struct WarmupRoutineEditorView: View {
                     }
                 }
 
-                Section {
-                    Button(role: .destructive) {
-                        showingResetConfirm = true
-                    } label: {
-                        Label("기본 루틴으로 되돌리기", systemImage: "arrow.uturn.backward")
+                if store.isCurrentSessionDefault {
+                    Section {
+                        Button(role: .destructive) {
+                            showingResetConfirm = true
+                        } label: {
+                            Label("기본 루틴으로 되돌리기", systemImage: "arrow.uturn.backward")
+                        }
                     }
                 }
             }

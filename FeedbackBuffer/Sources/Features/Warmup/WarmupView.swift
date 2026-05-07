@@ -4,10 +4,15 @@ struct WarmupView: View {
     @Environment(AppStore.self) private var store
     @State private var confirmingReset = false
     @State private var editingRoutine = false
+    @State private var showingSessionPicker = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    sessionSwitcherRow
+                }
+
                 Section {
                     progressHeader
                         .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 8, trailing: 0))
@@ -42,7 +47,43 @@ struct WarmupView: View {
             .sheet(isPresented: $editingRoutine) {
                 WarmupRoutineEditorView().environment(store)
             }
+            .sheet(isPresented: $showingSessionPicker) {
+                WarmupSessionPickerSheet().environment(store)
+            }
         }
+    }
+
+    private var sessionSwitcherRow: some View {
+        Button {
+            showingSessionPicker = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "rectangle.stack")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("현재 세션")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(store.currentWarmupSession?.name ?? "—")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("웜업 세션 선택")
+        .accessibilityValue(store.currentWarmupSession?.name ?? "")
     }
 
     @ViewBuilder
