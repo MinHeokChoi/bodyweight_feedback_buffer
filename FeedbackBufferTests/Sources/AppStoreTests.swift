@@ -187,12 +187,12 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.feedbacks.count, before)
     }
 
-    func test_resolveRemovesFromActive() {
+    func test_archiveRemovesFromActive() {
         let store = makeStore()
         let target = addFeedback(to: store)
         let beforeCount = store.activeFeedbacks.count
 
-        store.resolve(target.id)
+        store.archive(target.id)
 
         let updated = store.feedbacks.first { $0.id == target.id }!
         XCTAssertEqual(updated.status, .resolved)
@@ -201,12 +201,12 @@ final class AppStoreTests: XCTestCase {
         XCTAssertFalse(store.activeFeedbacks.contains { $0.id == target.id })
     }
 
-    func test_markUnresolvedIncrementsCountAndUpdatesReview() {
+    func test_markPracticedIncrementsCountAndUpdatesReview() {
         let store = makeStore()
         let target = addFeedback(to: store)
         let beforeCount = target.unresolvedCount
 
-        store.markUnresolved(target.id)
+        store.markPracticed(target.id)
 
         let updated = store.feedbacks.first { $0.id == target.id }!
         XCTAssertEqual(updated.unresolvedCount, beforeCount + 1)

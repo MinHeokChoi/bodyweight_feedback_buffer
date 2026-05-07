@@ -196,7 +196,7 @@ final class AppStore {
         persistFeedbacks()
     }
 
-    func resolve(_ id: UUID) {
+    func archive(_ id: UUID) {
         guard let idx = feedbacks.firstIndex(where: { $0.id == id }) else { return }
         feedbacks[idx].status = .resolved
         feedbacks[idx].resolvedAt = .now
@@ -204,7 +204,7 @@ final class AppStore {
         persistFeedbacks()
     }
 
-    func markUnresolved(_ id: UUID) {
+    func markPracticed(_ id: UUID) {
         guard let idx = feedbacks.firstIndex(where: { $0.id == id }) else { return }
         feedbacks[idx].unresolvedCount += 1
         feedbacks[idx].lastReviewedAt = .now

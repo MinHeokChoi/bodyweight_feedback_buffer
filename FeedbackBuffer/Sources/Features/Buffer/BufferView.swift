@@ -1,11 +1,30 @@
 import SwiftUI
 
+private enum BufferCategoryFilter: String {
+    case all, physical, skill
+
+    var displayName: String {
+        switch self {
+        case .all: "전체"
+        case .physical: FeedbackCategory.physical.displayName
+        case .skill: FeedbackCategory.skill.displayName
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .all: "list.bullet"
+        case .physical: FeedbackCategory.physical.systemImage
+        case .skill: FeedbackCategory.skill.systemImage
+        }
+    }
+}
+
 struct BufferView: View {
     @Environment(AppStore.self) private var store
     @State private var addingFeedback = false
     @State private var editing: Feedback?
-    @AppStorage("buffer.showPhysical") private var showPhysical = true
-    @AppStorage("buffer.showSkill") private var showSkill = true
+    @AppStorage("buffer.categoryFilter") private var categoryFilter: String = BufferCategoryFilter.all.rawValue
 
     var body: some View {
         NavigationStack {
@@ -33,10 +52,15 @@ struct BufferView: View {
         }
     }
 
+    private var selectedFilter: BufferCategoryFilter {
+        BufferCategoryFilter(rawValue: categoryFilter) ?? .all
+    }
+
     private func isVisible(_ category: FeedbackCategory) -> Bool {
-        switch category {
-        case .physical: showPhysical
-        case .skill: showSkill
+        switch selectedFilter {
+        case .all: true
+        case .physical: category == .physical
+        case .skill: category == .skill
         }
     }
 
@@ -47,7 +71,7 @@ struct BufferView: View {
         VStack(spacing: 0) {
             categoryFilterBar
             if filtered.isEmpty {
-                emptyState(hasAnyActive: !scored.isEmpty)
+                emptyState
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
@@ -55,12 +79,12 @@ struct BufferView: View {
                             FeedbackCardView(
                                 feedback: feedback,
                                 score: score,
-                                onResolve: {
-                                    withAnimation { store.resolve(feedback.id) }
+                                onArchive: {
+                                    withAnimation { store.archive(feedback.id) }
                                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                                 },
-                                onMarkUnresolved: {
-                                    withAnimation { store.markUnresolved(feedback.id) }
+                                onMarkPracticed: {
+                                    withAnimation { store.markPracticed(feedback.id) }
                                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 },
                                 onEdit: { editing = feedback },
@@ -80,50 +104,43 @@ struct BufferView: View {
 
     private var categoryFilterBar: some View {
         HStack(spacing: 8) {
-            categoryToggle(.physical, isOn: $showPhysical)
-            categoryToggle(.skill, isOn: $showSkill)
+            categoryButton(.all)
+            categoryButton(.physical)
+            categoryButton(.skill)
             Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
     }
 
-    private func categoryToggle(_ category: FeedbackCategory, isOn: Binding<Bool>) -> some View {
-        Button {
+    private func categoryButton(_ filter: BufferCategoryFilter) -> some View {
+        let isSelected = selectedFilter == filter
+        return Button {
             withAnimation(.easeInOut(duration: 0.15)) {
-                isOn.wrappedValue.toggle()
+                categoryFilter = filter.rawValue
             }
             UISelectionFeedbackGenerator().selectionChanged()
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: category.systemImage)
-                Text(category.displayName)
+                Image(systemName: filter.systemImage)
+                Text(filter.displayName)
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(isOn.wrappedValue ? Color.accentColor : Color.secondary)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             .padding(.horizontal, 12)
             .frame(minHeight: 34)
-            .modifier(CategoryToggleSurface(isSelected: isOn.wrappedValue))
+            .modifier(CategoryToggleSurface(isSelected: isSelected))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    @ViewBuilder
-    private func emptyState(hasAnyActive: Bool) -> some View {
-        if hasAnyActive {
-            ContentUnavailableView {
-                Label("표시할 범주를 선택해보세요", systemImage: "line.3.horizontal.decrease.circle")
-            } description: {
-                Text("위 버튼으로 체력/기술 훈련 범주를 켜고 끌 수 있어요.")
-            }
-        } else {
-            ContentUnavailableView {
-                Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
-            } description: {
-                Text("오른쪽 위 + 버튼으로 오늘 느낀 점을 추가해보세요.")
-            }
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
+        } description: {
+            Text("오른쪽 위 + 버튼으로 오늘 느낀 점을 추가해보세요.")
         }
     }
 }

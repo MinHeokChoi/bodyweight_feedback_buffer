@@ -3,8 +3,8 @@ import SwiftUI
 struct FeedbackCardView: View {
     let feedback: Feedback
     let score: Double
-    let onResolve: () -> Void
-    let onMarkUnresolved: () -> Void
+    let onArchive: () -> Void
+    let onMarkPracticed: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -105,8 +105,8 @@ struct FeedbackCardView: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            actionButton("해결", systemImage: "checkmark.circle.fill", tint: .green, action: onResolve)
-            actionButton("미해결", systemImage: "face.dashed", tint: .orange, action: onMarkUnresolved)
+            actionButton("보관", systemImage: "archivebox", tint: .green, action: onArchive)
+            actionButton("연습했어요", systemImage: "figure.run", tint: .orange, action: onMarkPracticed)
             actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
             actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }

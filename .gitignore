@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Xcode local build output
+Derived/
+
+# Local product notes
+AGENTS.md
+CLAUDE.md
+docs/ROADMAP.local.md
+docs/USER_FEEDBACK.md

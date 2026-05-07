@@ -28,8 +28,8 @@ struct SkillDetailView: View {
                             FeedbackCardView(
                                 feedback: feedback,
                                 score: score,
-                                onResolve: { withAnimation { store.resolve(feedback.id) } },
-                                onMarkUnresolved: { withAnimation { store.markUnresolved(feedback.id) } },
+                                onArchive: { withAnimation { store.archive(feedback.id) } },
+                                onMarkPracticed: { withAnimation { store.markPracticed(feedback.id) } },
                                 onEdit: { editing = feedback },
                                 onDelete: { withAnimation { store.delete(feedback.id) } }
                             )
