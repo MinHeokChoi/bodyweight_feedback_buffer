@@ -28,18 +28,23 @@ struct WarmupView: View {
 
                 Section("오늘의 웜업") {
                     ForEach(store.warmup) { item in
-                        WarmupRowView(item: item) {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                store.toggleWarmup(item.id)
-                            }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
+                        WarmupRowView(item: item)
                     }
                 }
 
                 resetSection
             }
             .navigationTitle("웜업")
+            .confirmationDialog("오늘의 웜업 체크를 모두 해제할까요?",
+                isPresented: $confirmingReset,
+                titleVisibility: .visible
+            ) {
+                Button("예, 해제", role: .destructive) {
+                    store.resetWarmupToday()
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+                Button("취소", role: .cancel) { }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -120,35 +125,13 @@ struct WarmupView: View {
 
     @ViewBuilder
     private var resetSection: some View {
-        if confirmingReset {
-            Section {
-                Button(role: .destructive) {
-                    withAnimation {
-                        store.resetWarmupToday()
-                        confirmingReset = false
-                    }
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                } label: {
-                    Label("예", systemImage: "checkmark")
-                }
-
-                Button(role: .cancel) {
-                    withAnimation { confirmingReset = false }
-                } label: {
-                    Label("아니오", systemImage: "xmark")
-                }
-            } header: {
-                Text("오늘의 웜업 체크를 모두 해제할까요?")
+        Section {
+            Button(role: .destructive) {
+                confirmingReset = true
+            } label: {
+                Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
             }
-        } else {
-            Section {
-                Button(role: .destructive) {
-                    withAnimation { confirmingReset = true }
-                } label: {
-                    Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
-                }
-                .disabled(!store.warmup.contains(where: \.checked))
-            }
+            .disabled(!store.warmup.contains(where: \.checked))
         }
     }
 
