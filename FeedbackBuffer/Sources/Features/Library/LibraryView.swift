@@ -3,6 +3,13 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(AppStore.self) private var store
     @State private var managingSkills = false
+    @State private var searchQuery: String = ""
+
+    private var filteredSkills: [Skill] {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return store.skills }
+        return store.skills.filter { $0.name.localizedCaseInsensitiveContains(trimmed) }
+    }
 
     private let columns = [
         GridItem(.adaptive(minimum: 150), spacing: 12)
@@ -20,12 +27,14 @@ struct LibraryView: View {
                         Button("첫 기술 추가") { managingSkills = true }
                             .buttonStyle(.borderedProminent)
                     }
+                } else if filteredSkills.isEmpty {
+                    ContentUnavailableView.search(text: searchQuery)
                 } else {
                     let unarchivedCounts = store.unarchivedCountsBySkill
                     let allCounts = store.feedbackCountsBySkill
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(store.skills) { skill in
+                            ForEach(filteredSkills) { skill in
                                 let activeCount = unarchivedCounts[skill.id] ?? 0
                                 let archivedCount = (allCounts[skill.id] ?? 0) - activeCount
                                 NavigationLink(value: skill) {
@@ -53,6 +62,9 @@ struct LibraryView: View {
                     .accessibilityLabel("기술 관리")
                 }
             }
+            .searchable(text: $searchQuery,
+                placement: .navigationBarDrawer(displayMode: .automatic),
+                prompt: "기술 검색")
             .navigationDestination(for: Skill.self) { skill in
                 SkillDetailView(skill: skill)
             }
@@ -74,10 +86,10 @@ private struct SkillTile: View {
                 SkillIconView(symbolName: skill.symbolName, size: 32)
                 Spacer()
                 if activeCount > 0 {
-                    countCapsule(count: activeCount, color: .accentColor)
+                    countCapsule(count: activeCount, color: .accentColor, systemImage: "flame.fill")
                 }
                 if archivedCount > 0 {
-                    countCapsule(count: archivedCount, color: .green)
+                    countCapsule(count: archivedCount, color: .green, systemImage: "archivebox.fill")
                 }
             }
             Text(skill.name)
@@ -95,13 +107,17 @@ private struct SkillTile: View {
         .accessibilityValue(accessibilityValue)
     }
 
-    private func countCapsule(count: Int, color: Color) -> some View {
-        Text("\(count)")
-            .font(.caption.weight(.bold).monospacedDigit())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color, in: Capsule())
+    private func countCapsule(count: Int, color: Color, systemImage: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text("\(count)")
+                .font(.caption.weight(.bold).monospacedDigit())
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(color, in: Capsule())
     }
 
     private var footerText: String {
