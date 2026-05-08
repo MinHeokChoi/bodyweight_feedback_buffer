@@ -71,16 +71,24 @@ struct FeedbackCardView: View {
             Text("\(Int(score.rounded()))점")
                 .font(.subheadline.weight(.bold).monospacedDigit())
                 .foregroundStyle(tierColor)
+            Menu {
+                Button { onEdit() } label: { Label("수정", systemImage: "pencil") }
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
+                } label: { Label("삭제", systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("더보기")
         }
     }
 
     private var cueView: some View {
         HStack(alignment: .top, spacing: 6) {
-//            Image(systemName: "quote.opening")
-//                .font(.caption.weight(.semibold))
-//                .foregroundStyle(.secondary)
-//                .padding(.top, 2)
-
             Text(feedback.note)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.primary)
@@ -100,9 +108,6 @@ struct FeedbackCardView: View {
                 metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
                 PhaseChip(phase: feedback.phase)
             }
-//            HStack(spacing: 14) {
-//                CategoryChip(category: feedback.category)
-//            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -112,8 +117,6 @@ struct FeedbackCardView: View {
         HStack(spacing: 8) {
             actionButton("보관", systemImage: "archivebox", tint: .green, action: onArchive)
             actionButton("연습했어요", systemImage: "figure.run", tint: .orange, action: onMarkPracticed)
-            actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
-            actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }
     }
 
@@ -125,10 +128,9 @@ struct FeedbackCardView: View {
                 Text(title)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
             }
             .foregroundStyle(tint)
-            .frame(maxWidth: .infinity, minHeight: 34)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .modifier(ActionButtonSurface(tint: tint))
             .contentShape(Capsule())
         }
