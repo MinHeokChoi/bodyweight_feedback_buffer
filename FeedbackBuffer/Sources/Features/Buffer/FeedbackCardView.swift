@@ -98,11 +98,11 @@ struct FeedbackCardView: View {
                 ImportanceStars(importance: feedback.importance)
                 metaChip(systemImage: "exclamationmark.bubble", text: "연습 \(feedback.unresolvedCount)회")
                 metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
-            }
-            HStack(spacing: 14) {
-                CategoryChip(category: feedback.category)
                 PhaseChip(phase: feedback.phase)
             }
+//            HStack(spacing: 14) {
+//                CategoryChip(category: feedback.category)
+//            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -231,7 +231,7 @@ struct PhaseChip: View {
         switch phase {
         case .new: "sparkles"
         case .practicing: "figure.run"
-        case .adapting: "checkmark.seal"
+        case .adapting: "brain.head.profile.fill"
         case .archived: "archivebox"
         }
     }

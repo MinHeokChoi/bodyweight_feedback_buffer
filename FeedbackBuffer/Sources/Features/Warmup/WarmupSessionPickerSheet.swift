@@ -7,49 +7,14 @@ struct WarmupSessionPickerSheet: View {
     @State private var creatingNew = false
     @State private var renamingSession: WarmupSession?
     @State private var deletingSession: WarmupSession?
+    @State private var editingItemsSession: WarmupSession?
 
     var body: some View {
         NavigationStack {
             List {
                 Section("세션") {
                     ForEach(store.warmupSessions) { session in
-                        Button {
-                            store.selectWarmupSession(session.id)
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            dismiss()
-                        } label: {
-                            row(for: session)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button {
-                                renamingSession = session
-                            } label: {
-                                Label("이름 변경", systemImage: "pencil")
-                            }
-                            if store.warmupSessions.count > 1 {
-                                Button(role: .destructive) {
-                                    deletingSession = session
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                }
-                            }
-                        }
-                        .swipeActions(edge: .trailing) {
-                            if store.warmupSessions.count > 1 {
-                                Button(role: .destructive) {
-                                    deletingSession = session
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                }
-                            }
-                            Button {
-                                renamingSession = session
-                            } label: {
-                                Label("이름 변경", systemImage: "pencil")
-                            }
-                            .tint(.blue)
-                        }
+                        row(for: session)
                     }
                 }
 
@@ -73,6 +38,9 @@ struct WarmupSessionPickerSheet: View {
             }
             .sheet(item: $renamingSession) { session in
                 RenameSessionSheet(session: session).environment(store)
+            }
+            .sheet(item: $editingItemsSession) { _ in
+                WarmupRoutineEditorView().environment(store)
             }
             .confirmationDialog(
                 "이 세션을 삭제할까요?",
@@ -112,9 +80,43 @@ struct WarmupSessionPickerSheet: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
             }
+
+            Menu {
+                Button {
+                    renamingSession = session
+                } label: {
+                    Label("이름 변경", systemImage: "pencil")
+                }
+                Button {
+                    store.selectWarmupSession(session.id)
+                    editingItemsSession = session
+                } label: {
+                    Label("항목 수정", systemImage: "list.bullet")
+                }
+                if store.warmupSessions.count > 1 {
+                    Button(role: .destructive) {
+                        deletingSession = session
+                    } label: {
+                        Label("삭제", systemImage: "trash")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("\(session.name) 액션")
         }
         .contentShape(Rectangle())
         .padding(.vertical, 2)
+        .onTapGesture {
+            store.selectWarmupSession(session.id)
+            UISelectionFeedbackGenerator().selectionChanged()
+            dismiss()
+        }
     }
 }
 

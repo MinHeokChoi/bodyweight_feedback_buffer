@@ -5,6 +5,7 @@ struct WarmupView: View {
     @State private var confirmingReset = false
     @State private var editingRoutine = false
     @State private var showingSessionPicker = false
+    @State private var runningSession = false
 
     var body: some View {
         NavigationStack {
@@ -14,8 +15,13 @@ struct WarmupView: View {
                 }
 
                 Section {
+                    startCTA
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+
                     progressHeader
-                        .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 8, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 0))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -50,7 +56,33 @@ struct WarmupView: View {
             .sheet(isPresented: $showingSessionPicker) {
                 WarmupSessionPickerSheet().environment(store)
             }
+            .fullScreenCover(isPresented: $runningSession) {
+                WarmupSessionRunnerView().environment(store)
+            }
         }
+    }
+
+    @ViewBuilder
+    private var startCTA: some View {
+        let isComplete = store.isWarmupComplete
+        let isEmpty = store.warmup.isEmpty
+        let disabled = isComplete || isEmpty
+
+        Button {
+            runningSession = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: isComplete ? "checkmark.seal.fill" : "play.fill")
+                Text(isComplete ? "오늘 웜업 완료" : "오늘의 웜업 시작")
+                    .font(.headline)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(isComplete ? .green : .accentColor)
+        .disabled(disabled)
+        .accessibilityLabel(isComplete ? "오늘 웜업 완료" : "오늘의 웜업 시작")
     }
 
     private var sessionSwitcherRow: some View {
