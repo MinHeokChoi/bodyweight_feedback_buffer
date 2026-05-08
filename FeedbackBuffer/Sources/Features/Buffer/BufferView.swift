@@ -22,6 +22,7 @@ private enum BufferCategoryFilter: String {
 
 struct BufferView: View {
     @Environment(AppStore.self) private var store
+    @Binding var tabSelection: RootTabView.Tab
     @State private var addingFeedback = false
     @State private var editing: Feedback?
     @AppStorage("buffer.categoryFilter") private var categoryFilter: String = BufferCategoryFilter.all.rawValue
@@ -141,6 +142,11 @@ struct BufferView: View {
             Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
         } description: {
             Text("오른쪽 위 + 버튼으로 오늘 느낀 점을 추가해보세요.")
+        } actions: {
+            Button("기술 라이브러리 보기") {
+                tabSelection = .library
+            }
+            .buttonStyle(.bordered)
         }
     }
 }
@@ -174,5 +180,5 @@ private struct CategoryToggleSurface: ViewModifier {
 }
 
 #Preview {
-    BufferView().environment(AppStore())
+    BufferView(tabSelection: .constant(.buffer)).environment(AppStore())
 }

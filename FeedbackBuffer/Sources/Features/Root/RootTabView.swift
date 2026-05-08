@@ -35,7 +35,7 @@ struct RootTabView: View {
                 }
                 .tag(Tab.warmup)
 
-            BufferView()
+            BufferView(tabSelection: $selection)
                 .tabItem {
                     Label("피드백 버퍼", systemImage: "bubble.left.and.bubble.right.fill")
                 }

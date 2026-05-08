@@ -41,7 +41,8 @@ struct LibraryView: View {
                                     SkillTile(
                                         skill: skill,
                                         activeCount: activeCount,
-                                        archivedCount: archivedCount
+                                        archivedCount: archivedCount,
+                                        lastActivity: store.lastActivityBySkill[skill.id]
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -79,6 +80,7 @@ private struct SkillTile: View {
     let skill: Skill
     let activeCount: Int
     let archivedCount: Int
+    let lastActivity: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -121,21 +123,39 @@ private struct SkillTile: View {
     }
 
     private var footerText: String {
-        switch (activeCount, archivedCount) {
-        case (0, 0): return "쌓인 피드백 없음"
-        case (let a, 0): return "활성 피드백 \(a)개"
-        case (0, let r): return "보관 \(r)개"
-        case (let a, let r): return "활성 \(a)개 · 보관 \(r)개"
+        let activityStr = lastActivity.map { relativeActivity(from: $0) }
+        switch activeCount {
+        case 0 where archivedCount == 0:
+            return "쌓인 피드백 없음"
+        case 0:
+            return activityStr.map { "보관 \(archivedCount)개 · \($0)" } ?? "보관 \(archivedCount)개"
+        default:
+            return activityStr.map { "활성 \(activeCount)개 · \($0)" } ?? "활성 \(activeCount)개"
+        }
+    }
+
+    private func relativeActivity(from date: Date) -> String {
+        let days = Calendar.current.dateComponents([.day], from: date, to: .now).day ?? 0
+        switch days {
+        case 0: return "오늘"
+        case 1: return "어제"
+        case 2...6: return "\(days)일 전"
+        default: return "\(days / 7)주 전"
         }
     }
 
     private var accessibilityValue: String {
+        let base: String
         switch (activeCount, archivedCount) {
-        case (0, 0): return "활성 피드백 없음"
-        case (let a, 0): return "활성 피드백 \(a)개"
-        case (0, let r): return "보관된 피드백 \(r)개"
-        case (let a, let r): return "활성 \(a)개, 보관 \(r)개"
+        case (0, 0): base = "활성 피드백 없음"
+        case (let a, 0): base = "활성 피드백 \(a)개"
+        case (0, let r): base = "보관된 피드백 \(r)개"
+        case (let a, let r): base = "활성 \(a)개, 보관 \(r)개"
         }
+        if let date = lastActivity {
+            return "\(base), 마지막 활동 \(relativeActivity(from: date))"
+        }
+        return base
     }
 }
 

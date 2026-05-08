@@ -9,6 +9,7 @@ struct FeedbackCardView: View {
     let onDelete: () -> Void
 
     @State private var showingDeleteConfirm = false
+    @State private var showingScoreInfo = false
 
     private var tier: FeedbackScoring.Tier { FeedbackScoring.tier(for: score) }
 
@@ -68,27 +69,33 @@ struct FeedbackCardView: View {
                 }
             }
             Spacer()
-            Text("\(Int(score.rounded()))점")
-                .font(.subheadline.weight(.bold).monospacedDigit())
-                .foregroundStyle(tierColor)
-            Menu {
-                Button { onEdit() } label: { Label("수정", systemImage: "pencil") }
-                Button(role: .destructive) {
-                    showingDeleteConfirm = true
-                } label: { Label("삭제", systemImage: "trash") }
+            Button {
+                showingScoreInfo = true
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
+                HStack(spacing: 4) {
+                    Text("\(Int(score.rounded()))점")
+                        .font(.subheadline.weight(.bold).monospacedDigit())
+                        .foregroundStyle(tierColor)
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
-            .accessibilityLabel("더보기")
+            .buttonStyle(.plain)
+            .popover(isPresented: $showingScoreInfo) {
+                ScoreInfoPopover()
+            }
+            .accessibilityLabel("\(Int(score.rounded()))점, 도움말")
         }
     }
 
     private var cueView: some View {
         HStack(alignment: .top, spacing: 6) {
+//            Image(systemName: "quote.opening")
+//                .font(.caption.weight(.semibold))
+//                .foregroundStyle(.secondary)
+//                .padding(.top, 2)
+
             Text(feedback.note)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.primary)
@@ -108,6 +115,9 @@ struct FeedbackCardView: View {
                 metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
                 PhaseChip(phase: feedback.phase)
             }
+//            HStack(spacing: 14) {
+//                CategoryChip(category: feedback.category)
+//            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -115,8 +125,10 @@ struct FeedbackCardView: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            actionButton("보관", systemImage: "archivebox", tint: .green, action: onArchive)
+            actionButton("해결", systemImage: "archivebox", tint: .green, action: onArchive)
             actionButton("연습했어요", systemImage: "figure.run", tint: .orange, action: onMarkPracticed)
+            actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
+            actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }
     }
 
@@ -128,9 +140,10 @@ struct FeedbackCardView: View {
                 Text(title)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .foregroundStyle(tint)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(maxWidth: .infinity, minHeight: 34)
             .modifier(ActionButtonSurface(tint: tint))
             .contentShape(Capsule())
         }
@@ -200,6 +213,37 @@ struct CategoryChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+private struct ScoreInfoPopover: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("우선순위 점수")
+                .font(.headline)
+            Text("• 중요도, 연습 횟수, 경과일을 합산해 자동 계산돼요.")
+            Text("• 반복 연습이 필요하고 오래된 피드백이 위로 올라와요.")
+            Divider()
+            HStack(spacing: 8) {
+                tierChip("매우 높음", color: .red)
+                tierChip("높음", color: .orange)
+                tierChip("보통", color: .yellow)
+                tierChip("낮음", color: .secondary)
+            }
+        }
+        .font(.subheadline)
+        .padding(20)
+        .frame(width: 300)
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private func tierChip(_ label: String, color: Color) -> some View {
+        Text(label)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.15), in: Capsule())
     }
 }
 

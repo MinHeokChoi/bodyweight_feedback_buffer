@@ -16,35 +16,30 @@ struct WarmupView: View {
 
                 Section {
                     startCTA
-                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
+                        .listRowInsets(EdgeInsets(top:0, leading: 16, bottom: 16, trailing: 16))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
                     progressHeader
-                        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
 
                 Section("오늘의 웜업") {
                     ForEach(store.warmup) { item in
-                        WarmupRowView(item: item)
+                        WarmupRowView(item: item) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                store.toggleWarmup(item.id)
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
                     }
                 }
 
                 resetSection
             }
-            .navigationTitle("웜업")
-            .confirmationDialog("오늘의 웜업 체크를 모두 해제할까요?",
-                isPresented: $confirmingReset,
-                titleVisibility: .visible
-            ) {
-                Button("예, 해제", role: .destructive) {
-                    store.resetWarmupToday()
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                }
-                Button("취소", role: .cancel) { }
-            }
+            .navigationTitle(store.currentWarmupSession?.name ?? "웜업")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -101,12 +96,12 @@ struct WarmupView: View {
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("현재 세션")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(store.currentWarmupSession?.name ?? "—")
+                    Text("세션 변경")
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
+                    Text("항목 \(store.warmup.count)개")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -115,23 +110,58 @@ struct WarmupView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            .contentShape(Rectangle())
-            .padding(.vertical, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
+            .background {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("웜업 세션 선택")
+        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 0))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityLabel("웜업 세션 변경")
         .accessibilityValue(store.currentWarmupSession?.name ?? "")
     }
 
     @ViewBuilder
     private var resetSection: some View {
-        Section {
-            Button(role: .destructive) {
-                confirmingReset = true
-            } label: {
-                Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
+        if confirmingReset {
+            Section {
+                Button(role: .destructive) {
+                    withAnimation {
+                        store.resetWarmupToday()
+                        confirmingReset = false
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } label: {
+                    Label("예", systemImage: "checkmark")
+                }
+
+                Button(role: .cancel) {
+                    withAnimation { confirmingReset = false }
+                } label: {
+                    Label("아니오", systemImage: "xmark")
+                }
+            } header: {
+                Text("오늘의 웜업 체크를 모두 해제할까요?")
             }
-            .disabled(!store.warmup.contains(where: \.checked))
+        } else {
+            Section {
+                Button(role: .destructive) {
+                    withAnimation { confirmingReset = true }
+                } label: {
+                    Label("다시 웜업하기", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!store.warmup.contains(where: \.checked))
+            }
         }
     }
 

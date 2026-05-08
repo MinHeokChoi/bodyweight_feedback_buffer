@@ -36,6 +36,7 @@ final class AppStore {
     private(set) var unarchivedFeedbacksScored: [(Feedback, Double)] = []
     private(set) var unarchivedCountsBySkill: [UUID: Int] = [:]
     private(set) var feedbackCountsBySkill: [UUID: Int] = [:]
+    private(set) var lastActivityBySkill: [UUID: Date] = [:]
 
     private let feedbackRepository: FeedbackRepository
     private let warmupRepository: WarmupRepository
@@ -204,14 +205,22 @@ final class AppStore {
         unarchivedFeedbacksScored = FeedbackScoring.sortedUnarchivedWithScores(feedbacks)
         var unarchived: [UUID: Int] = [:]
         var all: [UUID: Int] = [:]
+        var last: [UUID: Date] = [:]
         for feedback in feedbacks {
             all[feedback.skillId, default: 0] += 1
             if feedback.archivedAt == nil {
                 unarchived[feedback.skillId, default: 0] += 1
             }
+            let d = feedback.referenceDate
+            if let cur = last[feedback.skillId] {
+                if d > cur { last[feedback.skillId] = d }
+            } else {
+                last[feedback.skillId] = d
+            }
         }
         unarchivedCountsBySkill = unarchived
         feedbackCountsBySkill = all
+        lastActivityBySkill = last
     }
 
     func hasSkill(named name: String) -> Bool {
