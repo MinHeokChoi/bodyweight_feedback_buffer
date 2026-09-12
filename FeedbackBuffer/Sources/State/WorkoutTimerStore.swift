@@ -76,6 +76,20 @@ final class WorkoutTimerStore {
             .max { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }
     }
 
+    /// 이번 세션에서 그 구간에 들인 시간의 합.
+    ///
+    /// 같은 구간을 여러 번 들어갔다면 전부 더한다. 기술 연습을 두 번 하면
+    /// 마지막 블록이 아니라 두 번을 합친 시간이 그 구간에 들인 시간이다.
+    func accumulatedDuration(for kind: TrainingPhaseKind, now: Date = .now) -> TimeInterval {
+        guard let session = activeSession else { return 0 }
+        return session.durationByKind(now: now)[kind] ?? 0
+    }
+
+    /// 이번 세션에서 그 구간을 몇 번 들어갔는지.
+    func blockCount(for kind: TrainingPhaseKind) -> Int {
+        activeSession?.segments.filter { $0.kind == kind }.count ?? 0
+    }
+
     func accumulatedDuration(now: Date = .now) -> TimeInterval {
         activeSession?.activeDuration(now: now) ?? 0
     }

@@ -12,9 +12,9 @@ final class WorkoutHaptics {
 
     /// 연속으로 울릴 때의 간격.
     ///
-    /// 0.16초로는 여러 번이 뭉쳐 한 번처럼 느껴졌다. 세어야 하는 신호이므로
+    /// 0.16초는 뭉쳐 한 번처럼 느껴졌고 0.28초는 반대로 셋이 따로 놀았다. 세어야 하는 신호이므로
     /// 붙여 두기보다 넉넉히 떨어뜨리는 쪽이 맞다.
-    static let pulseInterval: TimeInterval = 0.28
+    static let pulseInterval: TimeInterval = 0.22
 
     /// 9분 운동 경계에서 울릴 횟수.
     ///

@@ -115,6 +115,43 @@ final class WorkoutTimerStoreTests: XCTestCase {
         XCTAssertTrue(store.activeSession?.segments[0].laps.isEmpty ?? false)
     }
 
+    /// 같은 구간을 두 번 해도 두 블록이 모두 남아야 한다.
+    func testSameKindTwiceKeepsBothSegments() {
+        let store = makeStore()
+        store.startSegment(.skillPractice, now: at(0))
+        store.endCurrentSegment(now: at(600))
+        store.startSegment(.skillPractice, now: at(900))
+        store.endCurrentSegment(now: at(1200))
+
+        XCTAssertEqual(store.activeSession?.segments.count, 2)
+        XCTAssertEqual(store.accumulatedDuration(for: .skillPractice, now: at(1200)), 900, accuracy: 0.001)
+    }
+
+    /// 휴식 화면이 마지막 블록만이 아니라 그 구간의 세션 누적을 보여줘야 한다.
+    func testAccumulatedDurationForKindSumsAcrossBlocks() {
+        let store = makeStore()
+        store.startSegment(.stretching, now: at(0))
+        store.endCurrentSegment(now: at(300))
+        store.startSegment(.strength, now: at(400))
+        store.endCurrentSegment(now: at(1000))
+        store.startSegment(.stretching, now: at(1100))
+        store.endCurrentSegment(now: at(1400))
+
+        XCTAssertEqual(store.accumulatedDuration(for: .stretching, now: at(1400)), 600, accuracy: 0.001)
+        XCTAssertEqual(store.accumulatedDuration(for: .strength, now: at(1400)), 600, accuracy: 0.001)
+        XCTAssertEqual(store.blockCount(for: .stretching), 2)
+        XCTAssertEqual(store.blockCount(for: .strength), 1)
+    }
+
+    func testAccumulatedDurationIncludesRunningSegment() {
+        let store = makeStore()
+        store.startSegment(.skillPractice, now: at(0))
+        store.endCurrentSegment(now: at(300))
+        store.startSegment(.skillPractice, now: at(400))
+
+        XCTAssertEqual(store.accumulatedDuration(for: .skillPractice, now: at(700)), 600, accuracy: 0.001)
+    }
+
     // MARK: - 일시정지
 
     func testPauseStopsBothClocks() {

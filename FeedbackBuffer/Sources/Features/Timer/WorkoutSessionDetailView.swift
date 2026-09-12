@@ -9,6 +9,8 @@ struct WorkoutSessionDetailView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 summary
 
+                kindTotals
+
                 DSSectionLabel(text: "구간 타임라인")
 
                 VStack(spacing: DS.Spacing.sm) {
@@ -48,6 +50,42 @@ struct WorkoutSessionDetailView: View {
                 )
             }
             SegmentRatioBar(byKind: session.durationByKind(), rest: session.restDuration())
+        }
+    }
+
+    /// 구간별 누적. 같은 구간을 여러 번 했을 때 합친 시간이 여기서 드러난다.
+    /// 아래 타임라인은 순서와 랩을 보여주므로 둘은 서로를 대체하지 않는다.
+    private var kindTotals: some View {
+        let byKind = session.durationByKind()
+        let entries = TrainingPhaseKind.recommendedOrder.compactMap { kind -> (TrainingPhaseKind, TimeInterval, Int)? in
+            guard let duration = byKind[kind], duration > 0 else { return nil }
+            let blocks = session.segments.filter { $0.kind == kind }.count
+            return (kind, duration, blocks)
+        }
+
+        return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            DSSectionLabel(text: "구간별 누적")
+
+            VStack(spacing: DS.Spacing.xs) {
+                ForEach(entries, id: \.0) { kind, duration, blocks in
+                    HStack(spacing: DS.Spacing.sm) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(kind.tint)
+                            .frame(width: 8, height: 8)
+                        Text(kind.displayName)
+                            .font(DS.Typo.metaLabel)
+                        if blocks > 1 {
+                            Text("\(blocks)회")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(WorkoutTimeFormat.clock(duration))
+                            .font(DS.Typo.number)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
     }
 

@@ -329,19 +329,38 @@ struct TimerView: View {
     }
 
     private func finishedSegmentRow(_ segment: TrainingSegment, now: Date) -> some View {
-        HStack {
-            Label("\(segment.kind.displayName) 완료", systemImage: "checkmark.circle.fill")
-                .font(DS.Typo.metaLabel)
-                .foregroundStyle(segment.kind.tint)
-            Spacer()
-            Text(WorkoutTimeFormat.clock(store.duration(of: segment, now: now)))
-                .font(DS.Typo.number)
-                .foregroundStyle(segment.kind.tint)
+        let total = store.accumulatedDuration(for: segment.kind, now: now)
+        let blocks = store.blockCount(for: segment.kind)
+        let thisBlock = store.duration(of: segment, now: now)
+
+        return VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            HStack {
+                Label("\(segment.kind.displayName) 완료", systemImage: "checkmark.circle.fill")
+                    .font(DS.Typo.metaLabel)
+                    .foregroundStyle(segment.kind.tint)
+                Spacer()
+                // 같은 구간을 여러 번 했다면 마지막 블록이 아니라 합친 시간을 보여준다.
+                Text(WorkoutTimeFormat.clock(total))
+                    .font(DS.Typo.number)
+                    .foregroundStyle(segment.kind.tint)
+            }
+
+            if blocks > 1 {
+                Text("\(blocks)번째 · 이번 \(WorkoutTimeFormat.clock(thisBlock))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.md)
         .background(segment.kind.tint.opacity(0.10), in: RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous))
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(segment.kind.displayName) 완료")
+        .accessibilityValue(
+            blocks > 1
+                ? "누적 \(WorkoutTimeFormat.spoken(total)), \(blocks)번째 블록 \(WorkoutTimeFormat.spoken(thisBlock))"
+                : WorkoutTimeFormat.spoken(total)
+        )
     }
 
     private func weeklySummary(now: Date) -> some View {
