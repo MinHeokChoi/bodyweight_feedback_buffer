@@ -42,6 +42,24 @@ struct TimerView: View {
         .sheet(isPresented: $showingFeedbackSheet) {
             AddFeedbackSheet(nil)
         }
+        // 종료 확인은 TimelineView 바깥에 둔다. 안에 두면 1초마다 다시 그려지면서
+        // 다이얼로그가 재구성돼 버튼이 사라진다.
+        .confirmationDialog(
+            "운동을 종료할까요?",
+            isPresented: $showingFinishConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("종료하고 기록 저장") {
+                store.finishSession()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            Button("기록하지 않고 버리기", role: .destructive) {
+                store.discardActiveSession()
+            }
+            Button("취소", role: .cancel) { }
+        } message: {
+            Text("지금까지 \(WorkoutTimeFormat.compact(store.accumulatedDuration())) 기록됐어요. 잘못 시작한 운동이면 버릴 수 있어요.")
+        }
         .onAppear {
             showingRecoveryDialog = store.needsRecoveryDecision
         }
@@ -259,22 +277,6 @@ struct TimerView: View {
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.bottom, DS.Spacing.xl)
-        }
-        .confirmationDialog(
-            "운동을 종료할까요?",
-            isPresented: $showingFinishConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("종료하고 기록 저장") {
-                store.finishSession()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
-            Button("기록하지 않고 버리기", role: .destructive) {
-                store.discardActiveSession()
-            }
-            Button("취소", role: .cancel) { }
-        } message: {
-            Text("지금까지 \(WorkoutTimeFormat.compact(store.accumulatedDuration())) 기록됐어요. 잘못 시작한 운동이면 버릴 수 있어요.")
         }
     }
 

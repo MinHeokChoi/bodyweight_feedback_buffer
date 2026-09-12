@@ -138,10 +138,15 @@ struct WorkoutStatisticsView: View {
                     .foregroundStyle(.secondary)
                     .dsTile()
             } else {
+                // 축 단위를 데이터 크기에 맞춘다. 시간으로 고정하면 한 시간이 안 되는
+                // 주에는 눈금이 전부 0h로 보여 축이 아무것도 말해주지 않는다.
+                let weekMax = weeklyMaximum(totals)
+                let useHours = weekMax >= 3600
+
                 Chart(totals) { item in
                     BarMark(
                         x: .value("주", item.weekStart, unit: .weekOfYear),
-                        y: .value("시간", item.duration / 3600)
+                        y: .value(useHours ? "시간" : "분", item.duration / 60)
                     )
                     .foregroundStyle(item.kind.tint)
                 }
@@ -149,8 +154,10 @@ struct WorkoutStatisticsView: View {
                     AxisMarks { value in
                         AxisGridLine()
                         AxisValueLabel {
-                            if let hours = value.as(Double.self) {
-                                Text("\(Int(hours))h")
+                            if let minutes = value.as(Double.self) {
+                                Text(useHours
+                                     ? "\(Int((minutes / 60).rounded()))시간"
+                                     : "\(Int(minutes.rounded()))분")
                             }
                         }
                     }
@@ -164,6 +171,15 @@ struct WorkoutStatisticsView: View {
                 .dsTile()
             }
         }
+    }
+
+    /// 한 주의 구간 시간을 합쳐 가장 큰 값을 구한다. 축 단위를 고르는 데 쓴다.
+    private func weeklyMaximum(_ totals: [WorkoutStatistics.WeeklyKindTotal]) -> TimeInterval {
+        var byWeek: [Date: TimeInterval] = [:]
+        for item in totals {
+            byWeek[item.weekStart, default: 0] += item.duration
+        }
+        return byWeek.values.max() ?? 0
     }
 
     // MARK: - 출석
