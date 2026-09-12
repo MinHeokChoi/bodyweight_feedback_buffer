@@ -3,6 +3,7 @@ import Foundation
 protocol FileStore {
     func load<T: Decodable>(_ type: T.Type, from filename: String) throws -> T?
     func save<T: Encodable>(_ value: T, to filename: String) throws
+    func remove(_ filename: String) throws
 }
 
 final class JSONStore: FileStore {
@@ -46,5 +47,11 @@ final class JSONStore: FileStore {
         )
         let data = try encoder.encode(value)
         try data.write(to: fileURL, options: [.atomic])
+    }
+
+    func remove(_ filename: String) throws {
+        let fileURL = url(for: filename)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
     }
 }

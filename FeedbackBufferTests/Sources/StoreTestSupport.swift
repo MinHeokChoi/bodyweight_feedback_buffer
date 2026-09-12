@@ -25,6 +25,10 @@ final class InMemoryFileStore: FileStore {
         storage[filename] = data
     }
 
+    func remove(_ filename: String) throws {
+        storage[filename] = nil
+    }
+
     func seed(_ data: Data, to filename: String) {
         storage[filename] = data
     }
@@ -48,6 +52,10 @@ final class FailingFileStore: FileStore {
     }
 
     func save<T: Encodable>(_ value: T, to filename: String) throws {
+        throw TestError.failed
+    }
+
+    func remove(_ filename: String) throws {
         throw TestError.failed
     }
 }
