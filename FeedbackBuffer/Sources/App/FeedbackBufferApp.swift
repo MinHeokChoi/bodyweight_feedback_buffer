@@ -3,19 +3,21 @@ import SwiftUI
 @main
 struct FeedbackBufferApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @State private var store = AppStore()
+    @State private var container = AppContainer()
 
     var body: some Scene {
         WindowGroup {
             RootTabView()
-                .environment(store)
+                .environment(container.appSessionStore)
+                .environment(container.feedbackStore)
+                .environment(container.warmupStore)
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
-                        store.refreshWarmupIfNeeded()
+                        container.warmupStore.refreshWarmupIfNeeded()
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
-                    store.refreshWarmupIfNeeded(force: true)
+                    container.warmupStore.refreshWarmupIfNeeded(force: true)
                 }
         }
     }

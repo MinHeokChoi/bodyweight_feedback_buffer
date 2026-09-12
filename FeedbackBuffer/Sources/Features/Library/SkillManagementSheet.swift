@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SkillManagementSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(FeedbackStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var newName = ""
@@ -142,7 +142,7 @@ struct SkillManagementSheet: View {
 }
 
 private struct SkillFormSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(FeedbackStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     let skill: Skill
@@ -186,5 +186,5 @@ private struct SkillFormSheet: View {
 }
 
 #Preview {
-    SkillManagementSheet().environment(AppStore())
+    SkillManagementSheet().environment(FeedbackStore())
 }

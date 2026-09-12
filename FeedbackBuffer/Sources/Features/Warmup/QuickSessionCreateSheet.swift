@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct QuickSessionCreateSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -60,5 +60,5 @@ struct QuickSessionCreateSheet: View {
 }
 
 #Preview {
-    QuickSessionCreateSheet().environment(AppStore())
+    QuickSessionCreateSheet().environment(WarmupStore())
 }

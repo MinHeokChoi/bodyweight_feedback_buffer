@@ -53,5 +53,16 @@ let project = Project(
                 .target(name: "FeedbackBuffer")
             ]
         )
+    ],
+    schemes: [
+        .scheme(
+            name: "FeedbackBuffer",
+            shared: true,
+            buildAction: .buildAction(targets: ["FeedbackBuffer"]),
+            testAction: .targets([
+                .testableTarget(target: "FeedbackBufferTests")
+            ]),
+            runAction: .runAction(configuration: .debug)
+        )
     ]
 )

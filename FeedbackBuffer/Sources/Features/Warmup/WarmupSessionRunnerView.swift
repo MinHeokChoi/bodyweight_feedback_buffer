@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WarmupSessionRunnerView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentIndex: Int = 0
@@ -143,5 +143,5 @@ struct WarmupSessionRunnerView: View {
 }
 
 #Preview {
-    WarmupSessionRunnerView().environment(AppStore())
+    WarmupSessionRunnerView().environment(WarmupStore())
 }

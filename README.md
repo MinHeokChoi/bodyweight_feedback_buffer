@@ -159,11 +159,23 @@
 
 ## 주요 설계
 
-### AppStore
+### AppContainer
 
-앱 전역 상태와 사용자 액션을 관리하는 단일 상태 저장소입니다.
+앱 시작 시 공통 의존성을 만들고 기능 Store를 연결하는 Composition Root입니다. 기능 상태나 사용자 액션을 직접 관리하지 않습니다.
 
-피드백 추가, 해결, 삭제, 기술 관리, 웜업 체크, 온보딩 상태 등을 한 곳에서 관리합니다.
+### AppSessionStore
+
+온보딩 완료 여부와 전역 저장 오류 알림을 관리합니다.
+
+### FeedbackStore
+
+피드백, 기술, 빠른 문구와 피드백 우선순위 파생값을 관리합니다. 피드백 추가·편집·보관·삭제, 기술 관리, 기본 기술 시딩과 스키마 마이그레이션을 담당합니다.
+
+### WarmupStore
+
+웜업 세션, 루틴, 일별 체크 상태와 진행률을 관리합니다. 세션 전환, 루틴 편집, 날짜 변경 시 상태 갱신을 담당합니다.
+
+각 SwiftUI 화면은 필요한 Store만 `Environment`로 주입받습니다. Buffer와 Library는 `FeedbackStore`, Warmup은 `WarmupStore`, Root는 `AppSessionStore`에 의존합니다.
 
 ### FeedbackRepository
 
@@ -227,16 +239,22 @@ open FeedbackBuffer.xcworkspace
 ### 빌드
 
 ```bash
-tuist build FeedbackBuffer
+tuist xcodebuild build \
+  -workspace FeedbackBuffer.xcworkspace \
+  -scheme FeedbackBuffer \
+  -destination 'generic/platform=iOS Simulator'
 ```
 
 ### 테스트
 
 ```bash
-tuist test FeedbackBuffer
+tuist xcodebuild test \
+  -workspace FeedbackBuffer.xcworkspace \
+  -scheme FeedbackBuffer \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-또는 Xcode에서 `FeedbackBufferTests` 타깃을 실행할 수 있습니다.
+설치된 시뮬레이터 이름이 다르면 `iPhone 16`을 해당 이름으로 바꿉니다. 또는 Xcode에서 `FeedbackBuffer` Scheme의 Test Action을 실행할 수 있습니다.
 
 ## 테스트 범위
 
@@ -256,6 +274,7 @@ tuist test FeedbackBuffer
 - 기술명 변경 시 기존 피드백 동기화
 - 중복 기술명 방지
 - 저장 실패 시 복구 흐름
+- AppContainer의 온보딩·전역 오류 연결
 
 ## App Store 제출 메모
 

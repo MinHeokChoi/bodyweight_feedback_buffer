@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WarmupSessionPickerSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var creatingNew = false
@@ -121,7 +121,7 @@ struct WarmupSessionPickerSheet: View {
 }
 
 private struct RenameSessionSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     let session: WarmupSession
@@ -163,5 +163,5 @@ private struct RenameSessionSheet: View {
 }
 
 #Preview {
-    WarmupSessionPickerSheet().environment(AppStore())
+    WarmupSessionPickerSheet().environment(WarmupStore())
 }

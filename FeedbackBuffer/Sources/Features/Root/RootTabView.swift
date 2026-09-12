@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootTabView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(AppSessionStore.self) private var store
     @State private var selection: Tab = .buffer
 
     enum Tab: Hashable {
@@ -74,6 +74,9 @@ struct RootTabView: View {
 }
 
 #Preview {
+    let container = AppContainer()
     RootTabView()
-        .environment(AppStore())
+        .environment(container.appSessionStore)
+        .environment(container.feedbackStore)
+        .environment(container.warmupStore)
 }

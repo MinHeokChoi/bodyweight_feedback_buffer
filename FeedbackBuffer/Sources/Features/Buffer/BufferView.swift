@@ -21,7 +21,7 @@ private enum BufferCategoryFilter: String {
 }
 
 struct BufferView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(FeedbackStore.self) private var store
     @Binding var tabSelection: RootTabView.Tab
     @State private var addingFeedback = false
     @State private var editing: Feedback?
@@ -180,5 +180,5 @@ private struct CategoryToggleSurface: ViewModifier {
 }
 
 #Preview {
-    BufferView(tabSelection: .constant(.buffer)).environment(AppStore())
+    BufferView(tabSelection: .constant(.buffer)).environment(FeedbackStore())
 }

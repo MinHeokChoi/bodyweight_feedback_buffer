@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct QuickPhrasesEditorSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(FeedbackStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var phrases: [String]
@@ -69,5 +69,5 @@ struct QuickPhrasesEditorSheet: View {
 
 #Preview {
     QuickPhrasesEditorSheet(phrases: ["견갑이 풀림", "코어 힘이 풀림"])
-        .environment(AppStore())
+        .environment(FeedbackStore())
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WarmupRoutineEditorView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var newLabel = ""
@@ -137,7 +137,7 @@ struct WarmupRoutineEditorView: View {
 }
 
 private struct WarmupItemFormSheet: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     let item: WarmupItem
@@ -181,5 +181,5 @@ private struct WarmupItemFormSheet: View {
 }
 
 #Preview {
-    WarmupRoutineEditorView().environment(AppStore())
+    WarmupRoutineEditorView().environment(WarmupStore())
 }

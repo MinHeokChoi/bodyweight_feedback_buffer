@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WarmupView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(WarmupStore.self) private var store
     @State private var confirmingReset = false
     @State private var editingRoutine = false
     @State private var showingSessionPicker = false
@@ -223,5 +223,5 @@ struct WarmupView: View {
 }
 
 #Preview {
-    WarmupView().environment(AppStore())
+    WarmupView().environment(WarmupStore())
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LibraryView: View {
-    @Environment(AppStore.self) private var store
+    @Environment(FeedbackStore.self) private var store
     @State private var managingSkills = false
     @State private var searchQuery: String = ""
 
@@ -201,5 +201,5 @@ private enum SkillIconAsset {
 }
 
 #Preview {
-    LibraryView().environment(AppStore())
+    LibraryView().environment(FeedbackStore())
 }
