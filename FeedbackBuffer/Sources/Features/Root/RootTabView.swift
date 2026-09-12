@@ -79,4 +79,5 @@ struct RootTabView: View {
         .environment(container.appSessionStore)
         .environment(container.feedbackStore)
         .environment(container.warmupStore)
+        .environment(container.workoutTimerStore)
 }

@@ -143,6 +143,74 @@ enum WorkoutClock {
         )
     }
 
+    /// 진행 중인 구간의 페이스 상태. 페이스 타이머를 쓰지 않는 구간이면 nil.
+    ///
+    /// 랩 번호는 이미 확정된 `segment.laps`에 이어서 센다. 그래서 수동으로
+    /// 일찍 넘긴 랩과 자동으로 넘어간 랩이 같은 번호 체계를 쓴다.
+    static func paceState(
+        for segment: TrainingSegment,
+        pauses: [PauseInterval],
+        now: Date,
+        lapTarget: TimeInterval = PaceTimer.defaultLapDuration
+    ) -> PaceState? {
+        guard segment.kind.usesPaceTimer else { return nil }
+        let elapsed = elapsedSinceAnchor(of: segment, pauses: pauses, now: now)
+        let base = paceState(elapsed: elapsed, lapTarget: lapTarget)
+        return PaceState(
+            lapIndex: base.lapIndex + segment.laps.count,
+            lapElapsed: base.lapElapsed,
+            lapTarget: base.lapTarget,
+            setIndex: base.setIndex,
+            setElapsed: base.setElapsed,
+            setsPerLap: base.setsPerLap
+        )
+    }
+
+    /// 현재 랩 원점부터 지금까지의 순수 경과 시간.
+    static func elapsedSinceAnchor(
+        of segment: TrainingSegment,
+        pauses: [PauseInterval],
+        now: Date
+    ) -> TimeInterval {
+        let end = segment.endedAt ?? now
+        let origin = segment.paceOrigin
+        let raw = max(0, end.timeIntervalSince(origin))
+        let paused = pausedDuration(in: pauses, between: origin, and: end)
+        return max(0, raw - paused)
+    }
+
+    /// 구간을 끝낼 때 확정할 랩 목록.
+    ///
+    /// 이미 확정된 랩 뒤에, 앵커 이후 자동으로 넘어간 랩들을 붙이고,
+    /// 마지막에 남은 자투리를 부분 랩으로 더한다. 9분을 다 못 채우고 끝낸
+    /// 마지막 운동도 기록에 남아야 하기 때문이다.
+    static func materializedLaps(
+        for segment: TrainingSegment,
+        pauses: [PauseInterval],
+        now: Date,
+        lapTarget: TimeInterval = PaceTimer.defaultLapDuration
+    ) -> [TrainingLap] {
+        guard segment.kind.usesPaceTimer else { return segment.laps }
+        let safeTarget = max(1, lapTarget)
+        let elapsed = elapsedSinceAnchor(of: segment, pauses: pauses, now: now)
+        var laps = segment.laps
+
+        let fullCount = Int(elapsed / safeTarget)
+        for _ in 0..<fullCount {
+            laps.append(
+                TrainingLap(index: laps.count + 1, duration: safeTarget, targetDuration: safeTarget)
+            )
+        }
+
+        let remainder = elapsed - Double(fullCount) * safeTarget
+        if remainder >= 1 {
+            laps.append(
+                TrainingLap(index: laps.count + 1, duration: remainder, targetDuration: safeTarget)
+            )
+        }
+        return laps
+    }
+
     /// 경과 시간으로부터 완료된 랩 목록을 만든다.
     ///
     /// 자동 전환은 사용자가 화면을 보고 있지 않아도 일어나야 한다. 백그라운드

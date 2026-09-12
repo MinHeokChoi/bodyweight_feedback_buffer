@@ -11,6 +11,7 @@ struct FeedbackBufferApp: App {
                 .environment(container.appSessionStore)
                 .environment(container.feedbackStore)
                 .environment(container.warmupStore)
+                .environment(container.workoutTimerStore)
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         container.warmupStore.refreshWarmupIfNeeded()

@@ -92,7 +92,14 @@ struct TrainingSegment: Identifiable, Codable, Hashable {
     var startedAt: Date
     /// nil이면 아직 진행 중이다.
     var endedAt: Date?
+    /// 이미 끝난 랩들. 자동 전환분은 구간을 끝낼 때 한 번에 확정된다.
     var laps: [TrainingLap]
+    /// 현재 랩이 시작된 시각.
+    ///
+    /// 보통은 구간 시작과 같지만, 사용자가 9분을 다 채우지 않고 "지금 바로
+    /// 다음 운동으로"를 누르면 그 시점으로 옮겨진다. 이 앵커가 없으면 수동
+    /// 전환 후의 랩을 경과 시간만으로 유도할 수 없다.
+    var paceAnchoredAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -100,7 +107,8 @@ struct TrainingSegment: Identifiable, Codable, Hashable {
         skillId: UUID? = nil,
         startedAt: Date,
         endedAt: Date? = nil,
-        laps: [TrainingLap] = []
+        laps: [TrainingLap] = [],
+        paceAnchoredAt: Date? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -108,7 +116,11 @@ struct TrainingSegment: Identifiable, Codable, Hashable {
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.laps = laps
+        self.paceAnchoredAt = paceAnchoredAt
     }
+
+    /// 현재 랩의 원점. 앵커가 없으면 구간 시작이 원점이다.
+    var paceOrigin: Date { paceAnchoredAt ?? startedAt }
 
     var isRunning: Bool { endedAt == nil }
 }
