@@ -167,6 +167,14 @@ final class WorkoutSessionModelTests: XCTestCase {
         XCTAssertEqual(PaceTimer.defaultSetsPerLap, 3)
     }
 
+    /// 카드 순서는 고정이다. 바뀌면 손이 기억한 위치가 어긋나므로 못 박아 둔다.
+    func testCardOrderIsFixed() {
+        XCTAssertEqual(
+            TrainingPhaseKind.recommendedOrder,
+            [.warmup, .skillPractice, .strength, .fatigueResistance, .stretching]
+        )
+    }
+
     func testAllPhaseKindsAreInRecommendedOrder() {
         XCTAssertEqual(
             Set(TrainingPhaseKind.recommendedOrder),

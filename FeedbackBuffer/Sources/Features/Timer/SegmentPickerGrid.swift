@@ -8,13 +8,12 @@ struct SegmentPickerGrid: View {
     var highlighted: TrainingPhaseKind?
     let onSelect: (TrainingPhaseKind) -> Void
 
-    private var kinds: [TrainingPhaseKind] {
-        guard let highlighted else { return TrainingPhaseKind.recommendedOrder }
-        // 다음에 할 법한 구간을 맨 앞으로 올린다. 순서만 바뀌고 목록은 같다.
-        var ordered = TrainingPhaseKind.recommendedOrder
-        ordered.removeAll { $0 == highlighted }
-        return [highlighted] + ordered
-    }
+    /// 카드 순서는 언제나 같다.
+    ///
+    /// 다음에 할 법한 구간을 앞으로 끌어올리면 상황마다 위치가 달라져, 운동
+    /// 중에 카드를 매번 읽고 찾아야 한다. 제안은 위치가 아니라 테두리로만
+    /// 표시한다.
+    private var kinds: [TrainingPhaseKind] { TrainingPhaseKind.recommendedOrder }
 
     var body: some View {
         LazyVGrid(
@@ -23,13 +22,13 @@ struct SegmentPickerGrid: View {
             spacing: DS.Spacing.sm
         ) {
             ForEach(Array(kinds.enumerated()), id: \.element) { index, kind in
-                button(for: kind, isLead: index == 0)
+                button(for: kind, isSuggested: kind == highlighted)
                     .gridCellColumns(index == kinds.count - 1 && kinds.count % 2 == 1 ? 2 : 1)
             }
         }
     }
 
-    private func button(for kind: TrainingPhaseKind, isLead: Bool) -> some View {
+    private func button(for kind: TrainingPhaseKind, isSuggested: Bool) -> some View {
         Button {
             onSelect(kind)
         } label: {
@@ -50,8 +49,8 @@ struct SegmentPickerGrid: View {
             .overlay {
                 RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
                     .stroke(
-                        isLead ? kind.tint.opacity(0.6) : DS.Line.color,
-                        lineWidth: isLead ? 1 : DS.Line.width
+                        isSuggested ? kind.tint.opacity(0.6) : DS.Line.color,
+                        lineWidth: isSuggested ? 1 : DS.Line.width
                     )
             }
         }

@@ -35,9 +35,13 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// 권장 순서. 강제하지 않고 화면에서 정렬에만 쓴다.
+    /// 화면에 카드가 놓이는 순서.
+    ///
+    /// 실제 훈련 흐름을 따른다. 스트레칭은 마무리에 하는 경우가 많아 끝에 둔다.
+    /// 이 순서는 **고정이다.** 상황에 따라 카드 위치가 바뀌면 손이 위치를
+    /// 기억할 수 없어 매번 읽고 찾아야 한다.
     static let recommendedOrder: [TrainingPhaseKind] = [
-        .warmup, .stretching, .skillPractice, .strength, .fatigueResistance
+        .warmup, .skillPractice, .strength, .fatigueResistance, .stretching
     ]
 
     /// 페이스 타이머(9분 랩)를 쓰는 구간.
