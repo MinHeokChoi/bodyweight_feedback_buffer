@@ -4,6 +4,10 @@
 # Xcode local build output
 Derived/
 
+# Tuist generated project files
+*.xcodeproj
+*.xcworkspace
+
 # Local product notes
 AGENTS.md
 CLAUDE.md
