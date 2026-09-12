@@ -6,15 +6,22 @@ import UIKit
 /// 어렵지만 몇 번 울렸는지는 알 수 있기 때문이다.
 ///
 /// - 3분 세트 경계: 짧게 1회
-/// - 9분 운동 경계: 짧게 2회
+/// - 9분 운동 경계: 짧게 3회
 @MainActor
 final class WorkoutHaptics {
 
-    /// 두 번 울릴 때의 간격.
+    /// 연속으로 울릴 때의 간격.
     ///
-    /// 너무 좁으면 한 번처럼 뭉쳐 들리고, 너무 넓으면 별개의 신호 두 개로 들린다.
-    /// 실제 손에서 느껴본 뒤 조정할 값이라 이 한 줄만 고치면 되도록 뽑아 뒀다.
-    static let doublePulseInterval: TimeInterval = 0.16
+    /// 0.16초로는 여러 번이 뭉쳐 한 번처럼 느껴졌다. 세어야 하는 신호이므로
+    /// 붙여 두기보다 넉넉히 떨어뜨리는 쪽이 맞다.
+    static let pulseInterval: TimeInterval = 0.28
+
+    /// 9분 운동 경계에서 울릴 횟수.
+    ///
+    /// 2회가 아니라 3회인 이유는, 운동 중에 1회와 2회를 세어 구별하기가
+    /// 생각보다 어렵기 때문이다. 1회와 3회는 "한 번"과 "드르륵"으로 성격이
+    /// 달라져서 세지 않고도 구분된다.
+    static let lapPulseCount: Int = 3
 
     private let setGenerator = UIImpactFeedbackGenerator(style: .light)
     private let lapGenerator = UIImpactFeedbackGenerator(style: .medium)
@@ -37,13 +44,25 @@ final class WorkoutHaptics {
         setGenerator.prepare()
     }
 
-    /// 9분 운동 경계 — 짧게 2회
+    /// 9분 운동 경계 — 짧게 3회
     func lapBoundary() {
-        lapGenerator.impactOccurred()
-        let generator = lapGenerator
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.doublePulseInterval) {
-            generator.impactOccurred()
-            generator.prepare()
+        fire(lapGenerator, times: Self.lapPulseCount)
+    }
+
+    /// 일정 간격으로 여러 번 울린다. 매번 다시 깨워 뒤 진동이 약해지지 않게 한다.
+    private func fire(_ generator: UIImpactFeedbackGenerator, times: Int) {
+        guard times > 0 else { return }
+        for index in 0..<times {
+            let delay = Double(index) * Self.pulseInterval
+            if delay == 0 {
+                generator.impactOccurred()
+                generator.prepare()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    generator.impactOccurred()
+                    generator.prepare()
+                }
+            }
         }
     }
 
