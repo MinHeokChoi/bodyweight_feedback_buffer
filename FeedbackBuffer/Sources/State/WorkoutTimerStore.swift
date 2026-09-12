@@ -193,8 +193,13 @@ final class WorkoutTimerStore {
         needsRecoveryDecision = false
         clearStoredActiveSession()
 
-        // 구간이 하나도 없는 세션은 기록으로서 의미가 없다.
-        guard !session.segments.isEmpty else { return nil }
+        // 구간이 없거나 실제로 한 시간이 0인 세션은 기록으로서 의미가 없다.
+        //
+        // 특히 복구에서 "여기서 종료"를 골랐는데 마지막으로 확인된 활동이
+        // 없으면 0분짜리가 되는데, 그대로 저장하면 통계의 "운동한 날"만
+        // 하루 늘고 운동 시간은 0인 유령 기록이 남는다.
+        guard !session.segments.isEmpty,
+              session.trainingDuration(now: now) >= 1 else { return nil }
 
         sessions.insert(session, at: 0)
         sessions.sort { $0.startedAt > $1.startedAt }

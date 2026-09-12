@@ -92,7 +92,7 @@ struct TimerView: View {
         let segmentElapsed = store.currentSegmentDuration(now: now)
 
         return VStack(spacing: 0) {
-            accumulatedBar(now: now)
+            accumulatedBar(now: now, insetHorizontally: true)
 
             Spacer(minLength: DS.Spacing.lg)
 
@@ -222,7 +222,7 @@ struct TimerView: View {
         ScrollView {
             VStack(spacing: DS.Spacing.lg) {
                 if store.isRunning {
-                    accumulatedBar(now: now)
+                    accumulatedBar(now: now, insetHorizontally: false)
 
                     VStack(spacing: DS.Spacing.sm) {
                         DSPill(text: "휴식", color: .secondary)
@@ -294,7 +294,7 @@ struct TimerView: View {
 
     // MARK: - 조각들
 
-    private func accumulatedBar(now: Date) -> some View {
+    private func accumulatedBar(now: Date, insetHorizontally: Bool) -> some View {
         HStack {
             Text("전체 누적")
                 .font(DS.Typo.metaLabel)
@@ -315,7 +315,7 @@ struct TimerView: View {
             RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
                 .stroke(DS.Line.color, lineWidth: DS.Line.width)
         }
-        .padding(.horizontal, store.runningSegment == nil ? 0 : DS.Spacing.lg)
+        .padding(.horizontal, insetHorizontally ? DS.Spacing.lg : 0)
         .padding(.top, DS.Spacing.sm)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("전체 누적")

@@ -196,6 +196,30 @@ final class WorkoutTimerStoreTests: XCTestCase {
         XCTAssertEqual(session.restDuration(now: at(1800)), 300, accuracy: 0.001)
     }
 
+    /// 0분짜리 유령 기록이 통계의 "운동한 날"만 늘리면 안 된다.
+    func testZeroLengthSessionIsNotRecorded() {
+        let store = makeStore()
+        store.startSegment(.strength, now: at(0))
+
+        store.finishSession(now: at(0))
+
+        XCTAssertTrue(store.sessions.isEmpty)
+        XCTAssertNil(store.activeSession)
+    }
+
+    func testRecoveredSessionWithNoKnownActivityIsNotRecorded() {
+        let fileStore = InMemoryFileStore()
+        // 구간을 시작만 하고 끝내지 않은 채 앱이 죽은 상황
+        makeStore(fileStore: fileStore).startSegment(.strength, now: at(0))
+        let store = makeStore(fileStore: fileStore)
+
+        store.finishRecoveredSessionAtLastKnownActivity()
+
+        XCTAssertTrue(store.sessions.isEmpty, "확인된 활동이 없으면 기록을 남기지 않는다")
+        XCTAssertNil(store.activeSession)
+        XCTAssertFalse(store.needsRecoveryDecision)
+    }
+
     func testDeleteSessionRemovesIt() {
         let store = makeStore()
         store.startSegment(.warmup, now: at(0))
