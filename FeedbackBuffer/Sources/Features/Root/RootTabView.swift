@@ -2,10 +2,11 @@ import SwiftUI
 
 struct RootTabView: View {
     @Environment(AppSessionStore.self) private var store
+    @Environment(WorkoutTimerStore.self) private var workoutStore
     @State private var selection: Tab = .buffer
 
     enum Tab: Hashable {
-        case warmup, buffer, library
+        case warmup, timer, buffer, library
     }
 
     var body: some View {
@@ -34,6 +35,13 @@ struct RootTabView: View {
                     Label("웜업", systemImage: "flame.fill")
                 }
                 .tag(Tab.warmup)
+
+            TimerView()
+                .tabItem {
+                    Label("타이머", systemImage: "stopwatch.fill")
+                }
+                .badge(workoutStore.isRunning ? "●" : nil)
+                .tag(Tab.timer)
 
             BufferView(tabSelection: $selection)
                 .tabItem {

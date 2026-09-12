@@ -1,0 +1,377 @@
+import SwiftUI
+import UIKit
+
+struct TimerView: View {
+    @Environment(WorkoutTimerStore.self) private var store
+
+    @State private var showingFinishConfirm = false
+    @State private var showingFeedbackSheet = false
+    @State private var showingRecoveryDialog = false
+    @State private var lastSetIndex: Int?
+    @State private var lastLapIndex: Int?
+
+    var body: some View {
+        NavigationStack {
+            // 1초마다 다시 그린다. 이 타이머는 표시 전용이고 아무 상태도 들지 않는다.
+            // 화면이 보일 때만 돌기 때문에 배터리 부담도 없다.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                content(now: context.date)
+            }
+            .background(DS.Surface.page.ignoresSafeArea())
+            .navigationTitle("타이머")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        WorkoutHistoryView()
+                    } label: {
+                        Image(systemName: "list.bullet.rectangle")
+                    }
+                    .accessibilityLabel("기록")
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        WorkoutStatisticsView()
+                    } label: {
+                        Image(systemName: "chart.bar.xaxis")
+                    }
+                    .accessibilityLabel("통계")
+                }
+            }
+        }
+        .sheet(isPresented: $showingFeedbackSheet) {
+            AddFeedbackSheet(nil)
+        }
+        .onAppear {
+            showingRecoveryDialog = store.needsRecoveryDecision
+        }
+        .confirmationDialog(
+            "아직 진행 중인 운동이 있어요",
+            isPresented: $showingRecoveryDialog,
+            titleVisibility: .visible
+        ) {
+            Button("이어서 하기") { store.resumeRecoveredSession() }
+            Button("여기서 종료") { store.finishRecoveredSessionAtLastKnownActivity() }
+            Button("버리기", role: .destructive) { store.discardActiveSession() }
+        } message: {
+            Text("마지막으로 기록된 시점까지만 저장할 수도 있어요.")
+        }
+    }
+
+    @ViewBuilder
+    private func content(now: Date) -> some View {
+        if let segment = store.runningSegment {
+            runningSegmentView(segment: segment, now: now)
+        } else {
+            segmentPickerView(now: now)
+        }
+    }
+
+    // MARK: - 구간 진행 중
+
+    private func runningSegmentView(segment: TrainingSegment, now: Date) -> some View {
+        let pace = store.paceState(now: now)
+        let segmentElapsed = store.currentSegmentDuration(now: now)
+
+        return VStack(spacing: 0) {
+            accumulatedBar(now: now)
+
+            Spacer(minLength: DS.Spacing.lg)
+
+            VStack(spacing: DS.Spacing.md) {
+                DSPill(text: segment.kind.displayName, color: segment.kind.tint)
+
+                Text(WorkoutTimeFormat.clock(pace?.lapElapsed ?? segmentElapsed))
+                    .font(DS.Typo.timer)
+                    .foregroundStyle(store.isPaused ? .secondary : .primary)
+                    .contentTransition(.numericText())
+                    .accessibilityLabel("경과 시간")
+                    .accessibilityValue(WorkoutTimeFormat.spoken(pace?.lapElapsed ?? segmentElapsed))
+
+                if let pace {
+                    Text("\(pace.lapIndex)번째 운동 · \(WorkoutTimeFormat.clock(pace.lapTarget)) 중")
+                        .font(DS.Typo.metaLabel)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(segment.kind.displayName + " 진행 중")
+                        .font(DS.Typo.metaLabel)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let pace {
+                setProgressBar(pace: pace, tint: segment.kind.tint)
+                    .padding(.top, DS.Spacing.xl)
+                    .padding(.horizontal, DS.Spacing.xl)
+            }
+
+            if store.isPaused {
+                DSPill(text: "일시정지됨", color: .secondary)
+                    .padding(.top, DS.Spacing.lg)
+            }
+
+            Spacer()
+
+            VStack(spacing: DS.Spacing.md) {
+                if pace != nil {
+                    Button {
+                        store.skipToNextLap()
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Text("지금 바로 다음 운동으로")
+                            .font(DS.Typo.metaLabel)
+                            .foregroundStyle(.secondary)
+                            .underline(pattern: .solid)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                HStack(spacing: DS.Spacing.sm) {
+                    Button {
+                        store.togglePause()
+                    } label: {
+                        Label(
+                            store.isPaused ? "재개" : "일시정지",
+                            systemImage: store.isPaused ? "play.fill" : "pause.fill"
+                        )
+                        .font(DS.Typo.buttonLabel)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+
+                    Button {
+                        store.endCurrentSegment()
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } label: {
+                        Text("\(segment.kind.displayName) 종료")
+                            .font(DS.Typo.buttonLabel)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.xl)
+        }
+        .onChange(of: pace?.setIndex) { _, newValue in fireSetHaptic(newValue) }
+        .onChange(of: pace?.lapIndex) { _, newValue in fireLapHaptic(newValue) }
+    }
+
+    /// 3분 세트 3칸. 지금 몇 세트째인지와 그 안의 진행을 함께 보여준다.
+    private func setProgressBar(pace: WorkoutClock.PaceState, tint: Color) -> some View {
+        let setDuration = pace.lapTarget / Double(pace.setsPerLap)
+
+        return VStack(spacing: DS.Spacing.sm) {
+            HStack(spacing: DS.Spacing.xs) {
+                ForEach(1...pace.setsPerLap, id: \.self) { index in
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color(.tertiarySystemFill))
+                            Capsule()
+                                .fill(tint)
+                                .frame(width: geo.size.width * fill(for: index, pace: pace, setDuration: setDuration))
+                        }
+                    }
+                    .frame(height: 8)
+                }
+            }
+
+            HStack {
+                ForEach(1...pace.setsPerLap, id: \.self) { index in
+                    Text("\(index)세트")
+                        .font(.caption2)
+                        .foregroundStyle(index == pace.setIndex ? tint : .secondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("세트 진행")
+        .accessibilityValue("\(pace.setsPerLap)세트 중 \(pace.setIndex)세트")
+    }
+
+    private func fill(for index: Int, pace: WorkoutClock.PaceState, setDuration: Double) -> Double {
+        if index < pace.setIndex { return 1 }
+        if index > pace.setIndex { return 0 }
+        return min(1, max(0, pace.setElapsed / setDuration))
+    }
+
+    // MARK: - 구간 선택 (대기 / 휴식)
+
+    private func segmentPickerView(now: Date) -> some View {
+        ScrollView {
+            VStack(spacing: DS.Spacing.lg) {
+                if store.isRunning {
+                    accumulatedBar(now: now)
+
+                    VStack(spacing: DS.Spacing.sm) {
+                        DSPill(text: "휴식", color: .secondary)
+                        Text(WorkoutTimeFormat.clock(store.currentRestDuration(now: now)))
+                            .font(DS.Typo.timer)
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                            .accessibilityLabel("휴식 경과")
+                            .accessibilityValue(WorkoutTimeFormat.spoken(store.currentRestDuration(now: now)))
+                    }
+                    .padding(.top, DS.Spacing.sm)
+
+                    if let last = store.lastFinishedSegment {
+                        finishedSegmentRow(last, now: now)
+                    }
+                } else {
+                    weeklySummary(now: now)
+                }
+
+                DSSectionLabel(
+                    text: store.isRunning ? "다음 구간을 시작할까요?" : "어떤 구간부터 시작할까요?"
+                )
+
+                SegmentPickerGrid(highlighted: suggestedNext) { kind in
+                    store.startSegment(kind)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+
+                if store.isRunning {
+                    VStack(spacing: DS.Spacing.sm) {
+                        Button {
+                            showingFeedbackSheet = true
+                        } label: {
+                            Label("지금 피드백 적기", systemImage: "plus")
+                                .font(DS.Typo.metaLabel)
+                                .frame(maxWidth: .infinity, minHeight: 40)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button(role: .destructive) {
+                            showingFinishConfirm = true
+                        } label: {
+                            Text("운동 종료")
+                                .font(DS.Typo.buttonLabel)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    }
+                    .padding(.top, DS.Spacing.sm)
+                }
+            }
+            .padding(.horizontal, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
+        }
+        .confirmationDialog(
+            "운동을 종료할까요?",
+            isPresented: $showingFinishConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("종료하고 기록 저장", role: .destructive) {
+                store.finishSession()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            Button("취소", role: .cancel) { }
+        } message: {
+            Text("지금까지 \(WorkoutTimeFormat.compact(store.accumulatedDuration())) 기록됐어요.")
+        }
+    }
+
+    /// 다음에 할 법한 구간. 권장 순서에서 방금 끝낸 구간 다음 것을 고른다.
+    private var suggestedNext: TrainingPhaseKind? {
+        guard let last = store.lastFinishedSegment?.kind,
+              let index = TrainingPhaseKind.recommendedOrder.firstIndex(of: last) else {
+            return store.isRunning ? nil : .warmup
+        }
+        let next = TrainingPhaseKind.recommendedOrder.index(after: index)
+        return next < TrainingPhaseKind.recommendedOrder.count
+            ? TrainingPhaseKind.recommendedOrder[next]
+            : nil
+    }
+
+    // MARK: - 조각들
+
+    private func accumulatedBar(now: Date) -> some View {
+        HStack {
+            Text("전체 누적")
+                .font(DS.Typo.metaLabel)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(WorkoutTimeFormat.clock(store.accumulatedDuration(now: now)))
+                .font(DS.Typo.timerSmall)
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText())
+        }
+        .padding(.horizontal, DS.Spacing.lg)
+        .padding(.vertical, DS.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
+                .fill(DS.Surface.card)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
+                .stroke(DS.Line.color, lineWidth: DS.Line.width)
+        }
+        .padding(.horizontal, store.runningSegment == nil ? 0 : DS.Spacing.lg)
+        .padding(.top, DS.Spacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("전체 누적")
+        .accessibilityValue(WorkoutTimeFormat.spoken(store.accumulatedDuration(now: now)))
+    }
+
+    private func finishedSegmentRow(_ segment: TrainingSegment, now: Date) -> some View {
+        HStack {
+            Label("\(segment.kind.displayName) 완료", systemImage: "checkmark.circle.fill")
+                .font(DS.Typo.metaLabel)
+                .foregroundStyle(segment.kind.tint)
+            Spacer()
+            Text(WorkoutTimeFormat.clock(store.duration(of: segment, now: now)))
+                .font(DS.Typo.number)
+                .foregroundStyle(segment.kind.tint)
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.md)
+        .background(segment.kind.tint.opacity(0.10), in: RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func weeklySummary(now: Date) -> some View {
+        let stats = WorkoutStatistics.summary(
+            for: store.sessions,
+            in: .last7Days,
+            now: now
+        )
+        return VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text("이번 주")
+                .font(DS.Typo.sectionLabel)
+                .foregroundStyle(.secondary)
+            Text(WorkoutTimeFormat.compact(stats.trainingDuration))
+                .font(DS.Typo.timerSmall)
+            Text(stats.dayCount > 0
+                 ? "\(stats.dayCount)일 운동 · 세션 \(stats.sessionCount)회"
+                 : "아직 기록이 없어요")
+                .font(DS.Typo.sectionLabel)
+                .foregroundStyle(.secondary)
+        }
+        .dsTile()
+        .padding(.top, DS.Spacing.sm)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - 햅틱
+
+    /// 세기가 아니라 횟수로 구분한다. 3분 세트는 짧게 1회, 9분 운동은 짧게 2회.
+    private func fireSetHaptic(_ newValue: Int?) {
+        defer { lastSetIndex = newValue }
+        guard let newValue, let previous = lastSetIndex, newValue != previous, newValue > previous else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func fireLapHaptic(_ newValue: Int?) {
+        defer { lastLapIndex = newValue }
+        guard let newValue, let previous = lastLapIndex, newValue > previous else { return }
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            generator.impactOccurred()
+        }
+    }
+}
