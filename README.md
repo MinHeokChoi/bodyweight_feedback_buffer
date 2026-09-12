@@ -290,6 +290,22 @@ tuist xcodebuild build \
   -destination 'generic/platform=iOS Simulator'
 ```
 
+### 실제 기기에 설치
+
+기기를 연결하고 개발자 모드를 켠 뒤 실행합니다.
+
+```bash
+xcodebuild build \
+  -workspace FeedbackBuffer.xcworkspace \
+  -scheme FeedbackBuffer \
+  -destination 'platform=iOS,id=<기기 UDID>' \
+  -allowProvisioningUpdates
+```
+
+연결된 기기의 UDID는 `xcrun devicectl list devices`로 확인합니다.
+
+개발팀은 `Project.swift`에 지정돼 있어 `tuist generate`로 프로젝트를 다시 만들어도 유지됩니다. 다른 계정으로 빌드하려면 그 값을 바꿉니다.
+
 ### 테스트
 
 ```bash
