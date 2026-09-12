@@ -9,6 +9,7 @@ struct TimerView: View {
     @State private var showingRecoveryDialog = false
     @State private var lastSetIndex: Int?
     @State private var lastLapIndex: Int?
+    @State private var haptics = WorkoutHaptics()
 
     var body: some View {
         NavigationStack {
@@ -51,7 +52,7 @@ struct TimerView: View {
         ) {
             Button("종료하고 기록 저장") {
                 store.finishSession()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                haptics.success()
             }
             Button("기록하지 않고 버리기", role: .destructive) {
                 store.discardActiveSession()
@@ -62,6 +63,11 @@ struct TimerView: View {
         }
         .onAppear {
             showingRecoveryDialog = store.needsRecoveryDecision
+            haptics.prepare()
+        }
+        .onChange(of: store.runningSegment?.id) { _, _ in
+            // 구간이 바뀌면 곧 경계 신호가 올 수 있으니 미리 깨워 둔다.
+            haptics.prepare()
         }
         .confirmationDialog(
             "아직 진행 중인 운동이 있어요",
@@ -134,7 +140,7 @@ struct TimerView: View {
                 if pace != nil {
                     Button {
                         store.skipToNextLap()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        haptics.action()
                     } label: {
                         Text("지금 바로 다음 운동으로")
                             .font(DS.Typo.metaLabel)
@@ -160,7 +166,7 @@ struct TimerView: View {
 
                     Button {
                         store.endCurrentSegment()
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        haptics.action()
                     } label: {
                         Text("\(segment.kind.displayName) 종료")
                             .font(DS.Typo.buttonLabel)
@@ -248,7 +254,7 @@ struct TimerView: View {
 
                 SegmentPickerGrid(highlighted: suggestedNext) { kind in
                     store.startSegment(kind)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    haptics.action()
                 }
 
                 if store.isRunning {
@@ -366,17 +372,15 @@ struct TimerView: View {
     /// 세기가 아니라 횟수로 구분한다. 3분 세트는 짧게 1회, 9분 운동은 짧게 2회.
     private func fireSetHaptic(_ newValue: Int?) {
         defer { lastSetIndex = newValue }
-        guard let newValue, let previous = lastSetIndex, newValue != previous, newValue > previous else { return }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // 랩이 넘어갈 때 세트 번호는 3에서 1로 줄어든다. 그때는 운동 경계 신호만
+        // 울려야 하므로 번호가 늘어난 경우에만 세트 신호를 낸다.
+        guard let newValue, let previous = lastSetIndex, newValue > previous else { return }
+        haptics.setBoundary()
     }
 
     private func fireLapHaptic(_ newValue: Int?) {
         defer { lastLapIndex = newValue }
         guard let newValue, let previous = lastLapIndex, newValue > previous else { return }
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            generator.impactOccurred()
-        }
+        haptics.lapBoundary()
     }
 }
