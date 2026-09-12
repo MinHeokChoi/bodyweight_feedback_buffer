@@ -61,7 +61,7 @@ struct DSMetric: View {
                 .font(DS.Typo.sectionLabel)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(DS.Typo.timerSmall)
+                .font(DS.Typo.metricValue)
                 .foregroundStyle(.primary)
             if let caption {
                 Text(caption)

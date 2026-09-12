@@ -44,8 +44,11 @@ enum DS {
     enum Typo {
         /// 타이머 숫자. 동적으로 커지면 레이아웃이 깨지므로 이 하나만 고정 크기를 허용한다.
         static let timer = Font.system(size: 46, weight: .bold, design: .rounded).monospacedDigit()
-        /// 보조 타이머(누적 등). 역시 고정.
+        /// 보조 타이머(누적 등). 살아 움직이는 숫자라 자리 흔들림을 막아야 해서 고정.
         static let timerSmall = Font.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit()
+
+        /// 통계·요약의 값. 흐르는 숫자가 아니므로 Dynamic Type을 따른다.
+        static let metricValue = Font.title3.weight(.semibold).monospacedDigit()
 
         /// 아래는 전부 Dynamic Type을 유지한다.
         static let screenTitle = Font.title3.weight(.semibold)

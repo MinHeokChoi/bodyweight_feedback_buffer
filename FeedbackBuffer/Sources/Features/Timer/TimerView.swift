@@ -349,7 +349,7 @@ struct TimerView: View {
                 .font(DS.Typo.sectionLabel)
                 .foregroundStyle(.secondary)
             Text(WorkoutTimeFormat.compact(stats.trainingDuration))
-                .font(DS.Typo.timerSmall)
+                .font(DS.Typo.metricValue)
             Text(stats.dayCount > 0
                  ? "\(stats.dayCount)일 운동 · 세션 \(stats.sessionCount)회"
                  : "아직 기록이 없어요")

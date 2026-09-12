@@ -188,41 +188,77 @@ struct WorkoutStatisticsView: View {
         let totals = WorkoutStatistics.dailyTotals(for: store.sessions, in: period)
         let byDay = Dictionary(uniqueKeysWithValues: totals.map { ($0.day, $0) })
         let maxDuration = totals.map(\.trainingDuration).max() ?? 1
-        let days = calendarDays()
+        let cells = calendarCells()
 
         return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             DSSectionLabel(text: "운동한 날")
 
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7),
-                spacing: 3
-            ) {
-                ForEach(days, id: \.self) { day in
-                    let total = byDay[day]
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(heatColor(total?.trainingDuration ?? 0, max: maxDuration))
-                        .aspectRatio(1, contentMode: .fit)
-                        .accessibilityLabel(Text(day, format: .dateTime.month().day()))
-                        .accessibilityValue(
-                            total == nil
-                                ? "운동 없음"
-                                : WorkoutTimeFormat.spoken(total!.trainingDuration)
-                        )
+            VStack(spacing: DS.Spacing.xs) {
+                weekdayHeader
+
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7),
+                    spacing: 3
+                ) {
+                    ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                        if let day {
+                            let total = byDay[day]
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(heatColor(total?.trainingDuration ?? 0, max: maxDuration))
+                                .aspectRatio(1, contentMode: .fit)
+                                .accessibilityLabel(Text(day, format: .dateTime.month().day()))
+                                .accessibilityValue(
+                                    total == nil
+                                        ? "운동 없음"
+                                        : WorkoutTimeFormat.spoken(total!.trainingDuration)
+                                )
+                        } else {
+                            // 첫 주의 빈 칸. 열이 요일을 뜻하도록 자리를 맞춘다.
+                            Color.clear
+                                .aspectRatio(1, contentMode: .fit)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 }
             }
             .dsTile()
         }
     }
 
-    private func calendarDays() -> [Date] {
+    private var weekdayHeader: some View {
+        let calendar = Calendar.current
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        // firstWeekday 기준으로 회전시킨다. 지역 설정이 일요일 시작이든 월요일
+        // 시작이든 아래 격자와 열이 어긋나지 않아야 한다.
+        let ordered = (0..<7).map { symbols[(calendar.firstWeekday - 1 + $0) % 7] }
+
+        return HStack(spacing: 3) {
+            ForEach(Array(ordered.enumerated()), id: \.offset) { _, symbol in
+                Text(symbol)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// 히트맵 칸 목록. 앞쪽 nil은 첫 주의 빈 칸이다.
+    private func calendarCells() -> [Date?] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let count = period.dayCount ?? max(28, daysSinceFirstSession())
-        return (0..<count)
-            .compactMap { calendar.date(byAdding: .day, value: -($0), to: today) }
+        let days: [Date] = (0..<count)
+            .compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
             .reversed()
+
+        guard let first = days.first else { return [] }
+        let weekday = calendar.component(.weekday, from: first)
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
+        return Array(repeating: nil, count: leading) + days.map { Optional($0) }
     }
 
+    /// "전체" 기간일 때 히트맵이 덮을 날 수. 최소 4주는 보여준다.
     private func daysSinceFirstSession() -> Int {
         guard let earliest = store.sessions.map(\.startedAt).min() else { return 28 }
         let calendar = Calendar.current
