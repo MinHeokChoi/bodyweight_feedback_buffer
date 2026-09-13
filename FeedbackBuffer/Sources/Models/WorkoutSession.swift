@@ -146,6 +146,15 @@ struct PauseInterval: Identifiable, Codable, Hashable {
     var isOpen: Bool { endedAt == nil }
 }
 
+// MARK: - Source
+
+/// 이 기록이 어디서 왔는가. 타이머로 시작한 기록과 사후에 손으로 적은 기록을 구분한다.
+/// 통계는 둘을 구분 없이 합산한다. 구분은 화면에서만 쓴다.
+enum WorkoutSessionSource: String, Codable, Hashable {
+    case timer
+    case manual
+}
+
 // MARK: - Session
 
 /// 헬스장 도착부터 운동 종료까지 한 번의 운동.
@@ -157,6 +166,7 @@ struct WorkoutSession: Identifiable, Codable, Hashable {
     var segments: [TrainingSegment]
     var pauses: [PauseInterval]
     var note: String
+    var source: WorkoutSessionSource
 
     init(
         id: UUID = UUID(),
@@ -164,7 +174,8 @@ struct WorkoutSession: Identifiable, Codable, Hashable {
         endedAt: Date? = nil,
         segments: [TrainingSegment] = [],
         pauses: [PauseInterval] = [],
-        note: String = ""
+        note: String = "",
+        source: WorkoutSessionSource = .timer
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -172,6 +183,23 @@ struct WorkoutSession: Identifiable, Codable, Hashable {
         self.segments = segments
         self.pauses = pauses
         self.note = note
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, startedAt, endedAt, segments, pauses, note, source
+    }
+
+    // source는 나중에 생긴 필드다. 없으면 타이머로 만든 기록이다.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.startedAt = try c.decode(Date.self, forKey: .startedAt)
+        self.endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        self.segments = try c.decode([TrainingSegment].self, forKey: .segments)
+        self.pauses = try c.decode([PauseInterval].self, forKey: .pauses)
+        self.note = try c.decode(String.self, forKey: .note)
+        self.source = try c.decodeIfPresent(WorkoutSessionSource.self, forKey: .source) ?? .timer
     }
 
     var isRunning: Bool { endedAt == nil }

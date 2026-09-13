@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutHistoryView: View {
     @Environment(WorkoutTimerStore.self) private var store
     @State private var pendingDelete: WorkoutSession?
+    @State private var editorMode: WorkoutSessionEditorView.Mode?
 
     private var grouped: [(day: Date, sessions: [WorkoutSession])] {
         let calendar = Calendar.current
@@ -26,6 +27,19 @@ struct WorkoutHistoryView: View {
         .background(DS.Surface.page.ignoresSafeArea())
         .navigationTitle("기록")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    editorMode = .create
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("기록 직접 추가")
+            }
+        }
+        .sheet(item: $editorMode) { mode in
+            WorkoutSessionEditorView(mode: mode).environment(store)
+        }
         .confirmationDialog(
             "이 기록을 삭제할까요?",
             isPresented: Binding(
@@ -62,12 +76,15 @@ struct WorkoutHistoryView: View {
 
                         ForEach(group.sessions) { session in
                             NavigationLink {
-                                WorkoutSessionDetailView(session: session)
+                                WorkoutSessionDetailView(initial: session)
                             } label: {
                                 sessionRow(session)
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
+                                Button("수정", systemImage: "pencil") {
+                                    editorMode = .edit(session)
+                                }
                                 Button("삭제", systemImage: "trash", role: .destructive) {
                                     pendingDelete = session
                                 }
@@ -83,7 +100,10 @@ struct WorkoutHistoryView: View {
     private func sessionRow(_ session: WorkoutSession) -> some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             HStack {
-                Text(session.startedAt, format: .dateTime.hour().minute())
+                // 직접 적은 기록은 시각을 묻지 않았다. 없는 값을 시계처럼 보여주지 않는다.
+                Text(session.source == .manual
+                     ? "직접 입력"
+                     : session.startedAt.formatted(date: .omitted, time: .shortened))
                     .font(DS.Typo.metaLabel)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -112,6 +132,9 @@ struct WorkoutHistoryView: View {
             Text("타이머에서 구간을 시작하면 기록이 쌓여요.")
                 .font(DS.Typo.metaLabel)
                 .foregroundStyle(.secondary)
+            Button("직접 추가하기") { editorMode = .create }
+                .buttonStyle(.bordered)
+                .padding(.top, DS.Spacing.xs)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

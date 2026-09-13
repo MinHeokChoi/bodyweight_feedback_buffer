@@ -345,4 +345,53 @@ final class WorkoutTimerStoreTests: XCTestCase {
         XCTAssertEqual(store.lastFinishedSegment?.kind, .strength)
         XCTAssertEqual(store.duration(of: store.lastFinishedSegment!, now: at(1800)), 900, accuracy: 0.001)
     }
+
+    // MARK: - 손으로 적기
+
+    func test_manualSessionIsStoredAndSorted() {
+        let store = makeStore()
+        let today = Date.now
+        let earlier = Calendar.current.date(byAdding: .day, value: -3, to: today)!
+
+        store.addManualSession(date: earlier, blocks: [
+            WorkoutSessionEditor.Block(kind: .warmup, duration: 600)
+        ])
+        store.addManualSession(date: today, blocks: [
+            WorkoutSessionEditor.Block(kind: .strength, duration: 1_620)
+        ])
+
+        XCTAssertEqual(store.sessions.count, 2)
+        XCTAssertGreaterThan(store.sessions[0].startedAt, store.sessions[1].startedAt)
+        XCTAssertEqual(store.sessions.first?.source, .manual)
+    }
+
+    func test_manualSessionWithoutDurationIsRejected() {
+        let store = makeStore()
+        let result = store.addManualSession(date: .now, blocks: [
+            WorkoutSessionEditor.Block(kind: .warmup, duration: 0)
+        ])
+
+        XCTAssertNil(result)
+        XCTAssertTrue(store.sessions.isEmpty)
+    }
+
+    func test_updateSessionChangesStoredDuration() {
+        let store = makeStore()
+        let created = store.addManualSession(date: .now, blocks: [
+            WorkoutSessionEditor.Block(kind: .skillPractice, duration: 600)
+        ])!
+
+        var blocks = WorkoutSessionEditor.blocks(of: created)
+        blocks[0].duration = 1_800
+        store.updateSession(created.id, blocks: blocks)
+
+        XCTAssertEqual(store.session(created.id)?.trainingDuration() ?? 0, 1_800, accuracy: 0.5)
+    }
+
+    func test_updateUnknownSessionDoesNothing() {
+        let store = makeStore()
+        XCTAssertNil(store.updateSession(UUID(), blocks: [
+            WorkoutSessionEditor.Block(kind: .warmup, duration: 600)
+        ]))
+    }
 }

@@ -30,6 +30,19 @@ struct TimerView: View {
                     }
                     .accessibilityLabel("기록")
                 }
+                // 구간 진행 중에도 피드백을 적을 수 있어야 한다. 아래쪽은 이미
+                // 큰 숫자와 버튼으로 꽉 차 있어서 툴바에 둔다. 오조작도 줄어든다.
+                // 휴식 화면에는 자리가 있어서 이미 버튼이 따로 있다.
+                if store.runningSegment != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingFeedbackSheet = true
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .accessibilityLabel("지금 피드백 적기")
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
                         WorkoutStatisticsView()

@@ -2,7 +2,15 @@ import SwiftUI
 
 /// 한 세션의 구간 타임라인.
 struct WorkoutSessionDetailView: View {
-    let session: WorkoutSession
+    @Environment(WorkoutTimerStore.self) private var store
+
+    /// 화면에 들어올 때의 모습. 수정하면 저장소 쪽이 최신이므로 그쪽을 먼저 본다.
+    let initial: WorkoutSession
+    @State private var editing = false
+
+    private var session: WorkoutSession {
+        store.session(initial.id) ?? initial
+    }
 
     var body: some View {
         ScrollView {
@@ -31,6 +39,14 @@ struct WorkoutSessionDetailView: View {
         .background(DS.Surface.page.ignoresSafeArea())
         .navigationTitle(Text(session.startedAt, format: .dateTime.month().day().weekday()))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("수정") { editing = true }
+            }
+        }
+        .sheet(isPresented: $editing) {
+            WorkoutSessionEditorView(mode: .edit(session)).environment(store)
+        }
     }
 
     private var summary: some View {
@@ -39,15 +55,20 @@ struct WorkoutSessionDetailView: View {
                 DSMetric(label: "운동 시간", value: WorkoutTimeFormat.compact(session.trainingDuration()))
                 DSMetric(label: "휴식", value: WorkoutTimeFormat.compact(session.restDuration()))
             }
-            HStack(spacing: DS.Spacing.sm) {
-                DSMetric(
-                    label: "시작",
-                    value: session.startedAt.formatted(date: .omitted, time: .shortened)
-                )
-                DSMetric(
-                    label: "종료",
-                    value: session.endedAt?.formatted(date: .omitted, time: .shortened) ?? "-"
-                )
+            // 직접 적은 기록에는 시각이 없다. 묻지 않은 값을 지어내지 않는다.
+            if session.source == .manual {
+                DSPill(text: "직접 입력한 기록", color: .secondary)
+            } else {
+                HStack(spacing: DS.Spacing.sm) {
+                    DSMetric(
+                        label: "시작",
+                        value: session.startedAt.formatted(date: .omitted, time: .shortened)
+                    )
+                    DSMetric(
+                        label: "종료",
+                        value: session.endedAt?.formatted(date: .omitted, time: .shortened) ?? "-"
+                    )
+                }
             }
             SegmentRatioBar(byKind: session.durationByKind(), rest: session.restDuration())
         }
@@ -100,9 +121,13 @@ struct WorkoutSessionDetailView: View {
                     .font(DS.Typo.number)
             }
 
-            Text("\(segment.startedAt.formatted(date: .omitted, time: .shortened)) – \(segment.endedAt?.formatted(date: .omitted, time: .shortened) ?? "진행 중")")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            // 직접 적은 기록에는 시각이 없다. 순서를 채우려고 만든 값을
+            // 시계처럼 보여주면 하지 않은 말을 하는 셈이다.
+            if session.source == .timer {
+                Text("\(segment.startedAt.formatted(date: .omitted, time: .shortened)) – \(segment.endedAt?.formatted(date: .omitted, time: .shortened) ?? "진행 중")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             if !segment.laps.isEmpty {
                 Divider()

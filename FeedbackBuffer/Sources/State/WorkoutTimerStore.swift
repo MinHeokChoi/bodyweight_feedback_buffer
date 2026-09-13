@@ -228,6 +228,45 @@ final class WorkoutTimerStore {
         clearStoredActiveSession()
     }
 
+    // MARK: - 손으로 적기 · 고치기
+
+    /// 타이머를 켜지 못한 날의 기록을 사후에 남긴다.
+    /// 날짜와 구간별 길이만 받는다. 시각은 묻지 않으므로 휴식은 0이다.
+    @discardableResult
+    func addManualSession(
+        date: Date,
+        blocks: [WorkoutSessionEditor.Block],
+        calendar: Calendar = .current
+    ) -> WorkoutSession? {
+        guard let session = WorkoutSessionEditor.makeManualSession(
+            date: date,
+            blocks: blocks,
+            calendar: calendar
+        ) else { return nil }
+
+        sessions.append(session)
+        sessions.sort { $0.startedAt > $1.startedAt }
+        persistSessions()
+        return session
+    }
+
+    /// 끝난 기록의 구간 길이를 고친다. 진행 중인 세션은 대상이 아니다.
+    @discardableResult
+    func updateSession(_ id: UUID, blocks: [WorkoutSessionEditor.Block]) -> WorkoutSession? {
+        guard let index = sessions.firstIndex(where: { $0.id == id }),
+              let updated = WorkoutSessionEditor.apply(blocks, to: sessions[index])
+        else { return nil }
+
+        sessions[index] = updated
+        sessions.sort { $0.startedAt > $1.startedAt }
+        persistSessions()
+        return updated
+    }
+
+    func session(_ id: UUID) -> WorkoutSession? {
+        sessions.first { $0.id == id }
+    }
+
     func deleteSession(_ id: UUID) {
         let before = sessions.count
         sessions.removeAll { $0.id == id }
