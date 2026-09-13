@@ -26,7 +26,7 @@ struct QuickSessionCreateSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("세션 이름") {
+                Section("루틴 이름") {
                     TextField("예: 공원 웜업", text: $name)
                         .submitLabel(.next)
                 }
@@ -40,7 +40,7 @@ struct QuickSessionCreateSheet: View {
                     Text("한 줄에 한 항목씩 적어주세요. 빈 줄은 자동으로 제외돼요.")
                 }
             }
-            .navigationTitle("새 웜업 세션")
+            .navigationTitle("새 웜업 루틴")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

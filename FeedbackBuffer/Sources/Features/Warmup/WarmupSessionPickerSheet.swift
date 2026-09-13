@@ -12,7 +12,7 @@ struct WarmupSessionPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("세션") {
+                Section("루틴") {
                     ForEach(store.warmupSessions) { session in
                         row(for: session)
                     }
@@ -22,11 +22,11 @@ struct WarmupSessionPickerSheet: View {
                     Button {
                         creatingNew = true
                     } label: {
-                        Label("세션 추가", systemImage: "plus.circle.fill")
+                        Label("루틴 추가", systemImage: "plus.circle.fill")
                     }
                 }
             }
-            .navigationTitle("웜업 세션")
+            .navigationTitle("웜업 루틴")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -43,7 +43,7 @@ struct WarmupSessionPickerSheet: View {
                 WarmupRoutineEditorView().environment(store)
             }
             .confirmationDialog(
-                "이 세션을 삭제할까요?",
+                "이 루틴을 삭제할까요?",
                 isPresented: Binding(
                     get: { deletingSession != nil },
                     set: { if !$0 { deletingSession = nil } }
@@ -58,7 +58,7 @@ struct WarmupSessionPickerSheet: View {
                 }
                 Button("취소", role: .cancel) { deletingSession = nil }
             } message: {
-                Text("세션의 항목과 오늘의 체크 기록이 함께 사라져요.")
+                Text("루틴의 항목과 오늘의 체크 기록이 함께 사라져요.")
             }
         }
     }
@@ -139,12 +139,12 @@ private struct RenameSessionSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("세션 이름") {
+                Section("루틴 이름") {
                     TextField("이름", text: $name)
                         .submitLabel(.done)
                 }
             }
-            .navigationTitle("세션 이름 변경")
+            .navigationTitle("루틴 이름 변경")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

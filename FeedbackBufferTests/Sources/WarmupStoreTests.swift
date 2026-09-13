@@ -230,4 +230,75 @@ final class WarmupStoreTests: StoreTestCase {
             XCTFail("default session id should be set after bootstrap")
         }
     }
+
+    // MARK: - 러너 완료 (건너뛰어도 완료)
+
+    func test_runnerFinishCompletesEvenWithSkippedItems() {
+        let store = makeWarmupStore()
+        store.toggleWarmup(store.warmup.first!.id)
+
+        store.markRunnerFinished()
+
+        XCTAssertTrue(store.isWarmupComplete)
+        XCTAssertEqual(store.checkedCount, 1)
+        XCTAssertEqual(store.skippedCount, store.warmup.count - 1)
+        // 완료지만 100%는 아니다. 진행률은 부풀리지 않는다.
+        XCTAssertLessThan(store.warmupCompletionRatio, 1.0)
+    }
+
+    func test_runnerFinishOnEmptyRoutineDoesNothing() {
+        let store = makeWarmupStore()
+        store.addWarmupSession(name: "빈 루틴", items: [])
+
+        store.markRunnerFinished()
+
+        XCTAssertFalse(store.isWarmupComplete)
+        XCTAssertEqual(store.skippedCount, 0)
+    }
+
+    func test_resetClearsRunnerFinish() {
+        let store = makeWarmupStore()
+        store.markRunnerFinished()
+        XCTAssertTrue(store.isWarmupComplete)
+
+        store.resetWarmupToday()
+
+        XCTAssertFalse(store.isWarmupComplete)
+        XCTAssertFalse(store.didFinishRunnerToday)
+    }
+
+    func test_runnerFinishIsPerDay() {
+        let store = makeWarmupStore()
+        store.markRunnerFinished()
+
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now)!
+        store.refreshWarmupIfNeeded(now: tomorrow)
+
+        XCTAssertFalse(store.isWarmupComplete)
+    }
+
+    func test_runnerFinishIsPerRoutine() {
+        let store = makeWarmupStore()
+        let firstId = store.selectedWarmupSessionId!
+        store.markRunnerFinished()
+
+        let other = store.addWarmupSession(name: "다른 루틴", items: DefaultWarmup.items)
+        XCTAssertFalse(store.isWarmupComplete)
+
+        store.selectWarmupSession(firstId)
+        XCTAssertTrue(store.isWarmupComplete)
+
+        store.selectWarmupSession(other.id)
+        XCTAssertFalse(store.isWarmupComplete)
+    }
+
+    func test_allCheckedStillCountsAsComplete() {
+        let store = makeWarmupStore()
+        for item in store.warmup {
+            store.toggleWarmup(item.id)
+        }
+
+        XCTAssertTrue(store.isWarmupComplete)
+        XCTAssertEqual(store.skippedCount, 0)
+    }
 }

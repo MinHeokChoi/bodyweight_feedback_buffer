@@ -8,6 +8,8 @@ final class WarmupStore {
     private(set) var warmupSessions: [WarmupSession] = []
     private(set) var selectedWarmupSessionId: UUID?
     private(set) var defaultWarmupSessionId: UUID?
+    /// 오늘 러너를 마지막 항목까지 돌았는지. 체크 상태와 별개다.
+    private(set) var didFinishRunnerToday = false
 
     private let warmupRepository: WarmupRepository
     private let persistenceScheduler: PersistenceScheduler
@@ -31,6 +33,12 @@ final class WarmupStore {
         currentWarmupDateKey = WarmupDateKey.today()
         bootstrapWarmupSessions()
         warmup = loadWarmup(for: .now)
+        didFinishRunnerToday = loadRunnerFinished(for: .now)
+    }
+
+    private func loadRunnerFinished(for date: Date) -> Bool {
+        guard let sessionId = selectedWarmupSessionId else { return false }
+        return warmupRepository.loadRunnerFinished(sessionId: sessionId, for: date)
     }
 
     private func bootstrapWarmupSessions() {
@@ -126,8 +134,17 @@ final class WarmupStore {
 
     func resetWarmupToday() {
         warmup = warmup.map { WarmupItem(id: $0.id, label: $0.label) }
+        didFinishRunnerToday = false
         guard let sessionId = selectedWarmupSessionId else { return }
         warmupRepository.reset(sessionId: sessionId, for: .now)
+    }
+
+    /// 러너 마지막 항목까지 진행해 완료 화면에 도달했을 때 호출한다.
+    /// 건너뛴 항목이 몇 개든 그날 웜업은 끝난 것으로 본다.
+    func markRunnerFinished(now: Date = .now) {
+        guard !warmup.isEmpty, let sessionId = selectedWarmupSessionId else { return }
+        didFinishRunnerToday = true
+        warmupRepository.saveRunnerFinished(true, sessionId: sessionId, for: now)
     }
 
     func addWarmupItem(label: String) {
@@ -211,6 +228,7 @@ final class WarmupStore {
                 warmupRepository.saveSelectedSessionId(nextId)
             }
             warmup = loadWarmup(for: .now)
+            didFinishRunnerToday = loadRunnerFinished(for: .now)
         }
         persistWarmupSessions()
     }
@@ -221,6 +239,7 @@ final class WarmupStore {
         selectedWarmupSessionId = id
         warmupRepository.saveSelectedSessionId(id)
         warmup = loadWarmup(for: .now)
+        didFinishRunnerToday = loadRunnerFinished(for: .now)
     }
 
     var warmupCompletionRatio: Double {
@@ -229,15 +248,24 @@ final class WarmupStore {
         return Double(done) / Double(warmup.count)
     }
 
+    /// 러너를 끝까지 돌았거나, 모든 항목을 체크했으면 완료다.
+    /// 건너뛴 항목은 완료를 막지 않는다.
     var isWarmupComplete: Bool {
-        !warmup.isEmpty && warmup.allSatisfy(\.checked)
+        guard !warmup.isEmpty else { return false }
+        return didFinishRunnerToday || warmup.allSatisfy(\.checked)
     }
+
+    var checkedCount: Int { warmup.filter(\.checked).count }
+
+    /// 완료했는데 체크되지 않은 항목 = 건너뛴 항목.
+    var skippedCount: Int { isWarmupComplete ? warmup.count - checkedCount : 0 }
 
     func refreshWarmupIfNeeded(now: Date = .now, force: Bool = false) {
         let nextKey = WarmupDateKey.today(now)
         guard force || nextKey != currentWarmupDateKey else { return }
         currentWarmupDateKey = nextKey
         warmup = loadWarmup(for: now)
+        didFinishRunnerToday = loadRunnerFinished(for: now)
     }
 
     // MARK: - Persistence

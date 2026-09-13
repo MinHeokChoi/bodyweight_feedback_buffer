@@ -7,6 +7,7 @@ final class WarmupRepository {
     private let sessionsKey = "warmupSessions_v1"
     private let selectedSessionKey = "warmupSelectedSessionId_v1"
     private let defaultSessionKey = "warmupDefaultSessionId_v1"
+    private let runnerFinishedPrefix = "warmupDone_"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -79,13 +80,44 @@ final class WarmupRepository {
 
     func reset(sessionId: UUID, for date: Date = .now) {
         defaults.removeObject(forKey: dayKey(sessionId: sessionId, for: date))
+        resetRunnerFinished(sessionId: sessionId, for: date)
     }
 
     func deleteAllCheckStates(forSessionId id: UUID) {
-        let prefix = "warmup_\(id.uuidString)_"
-        let matchingKeys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }
+        let prefixes = [
+            "warmup_\(id.uuidString)_",
+            "\(runnerFinishedPrefix)\(id.uuidString)_"
+        ]
+        let matchingKeys = defaults.dictionaryRepresentation().keys.filter { key in
+            prefixes.contains { key.hasPrefix($0) }
+        }
         for key in matchingKeys {
             defaults.removeObject(forKey: key)
         }
+    }
+
+    // MARK: - Per-session daily runner completion
+
+    // 체크 상태와 따로 둔다. 건너뛴 항목이 있어도 러너를 끝까지 돌았다면
+    // 그날 웜업은 끝난 것으로 보기 때문이다.
+    private func runnerFinishedKey(sessionId: UUID, for date: Date) -> String {
+        "\(runnerFinishedPrefix)\(sessionId.uuidString)_\(WarmupDateKey.today(date))"
+    }
+
+    func loadRunnerFinished(sessionId: UUID, for date: Date = .now) -> Bool {
+        defaults.bool(forKey: runnerFinishedKey(sessionId: sessionId, for: date))
+    }
+
+    func saveRunnerFinished(_ finished: Bool, sessionId: UUID, for date: Date = .now) {
+        let key = runnerFinishedKey(sessionId: sessionId, for: date)
+        if finished {
+            defaults.set(true, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    func resetRunnerFinished(sessionId: UUID, for date: Date = .now) {
+        defaults.removeObject(forKey: runnerFinishedKey(sessionId: sessionId, for: date))
     }
 }

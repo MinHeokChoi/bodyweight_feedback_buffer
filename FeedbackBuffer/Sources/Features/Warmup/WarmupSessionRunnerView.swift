@@ -133,6 +133,8 @@ struct WarmupSessionRunnerView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
+        // 끝까지 도달한 순간이 완료다. 건너뛴 항목이 있어도 마찬가지다.
+        .onAppear { store.markRunnerFinished() }
     }
 
     private func advance() {
