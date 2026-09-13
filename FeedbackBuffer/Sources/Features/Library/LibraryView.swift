@@ -54,6 +54,16 @@ struct LibraryView: View {
             }
             .navigationTitle("기술 라이브러리")
             .toolbar {
+                // 타이머 탭과 같은 문법이다 — 부가 목적지는 툴바에 둔다.
+                // 시즌당 몇 번 쓰는 화면에 탭을 하나 내주지 않는다.
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        MeasurementHomeView()
+                    } label: {
+                        Image(systemName: "ruler")
+                    }
+                    .accessibilityLabel("시즌 측정")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         managingSkills = true

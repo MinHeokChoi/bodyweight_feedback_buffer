@@ -6,11 +6,13 @@ final class AppContainer {
     let feedbackStore: FeedbackStore
     let warmupStore: WarmupStore
     let workoutTimerStore: WorkoutTimerStore
+    let measurementStore: MeasurementStore
 
     init(
         feedbackRepository: FeedbackRepository = FeedbackRepository(),
         warmupRepository: WarmupRepository = WarmupRepository(),
         workoutRepository: WorkoutRepository = WorkoutRepository(),
+        measurementRepository: MeasurementRepository = MeasurementRepository(),
         settingsRepository: UserSettingsRepository = UserSettingsRepository(),
         persistenceScheduler: PersistenceScheduler = .background
     ) {
@@ -35,6 +37,12 @@ final class AppContainer {
             reportIssue: reportIssue
         )
 
+        let measurementStore = MeasurementStore(
+            repository: measurementRepository,
+            persistenceScheduler: persistenceScheduler,
+            reportIssue: reportIssue
+        )
+
         if !appSessionStore.hasCompletedOnboarding && !feedbackStore.feedbacks.isEmpty {
             appSessionStore.completeOnboarding()
         }
@@ -43,5 +51,6 @@ final class AppContainer {
         self.feedbackStore = feedbackStore
         self.warmupStore = warmupStore
         self.workoutTimerStore = workoutTimerStore
+        self.measurementStore = measurementStore
     }
 }
