@@ -171,7 +171,7 @@ final class WorkoutSessionModelTests: XCTestCase {
     func testCardOrderIsFixed() {
         XCTAssertEqual(
             TrainingPhaseKind.recommendedOrder,
-            [.warmup, .skillPractice, .strength, .fatigueResistance, .running, .stretching]
+            [.warmup, .skillPractice, .strength, .fatigueResistance, .stretching, .running]
         )
     }
 

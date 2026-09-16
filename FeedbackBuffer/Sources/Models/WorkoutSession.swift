@@ -44,7 +44,7 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
     /// 이 순서는 **고정이다.** 상황에 따라 카드 위치가 바뀌면 손이 위치를
     /// 기억할 수 없어 매번 읽고 찾아야 한다.
     static let recommendedOrder: [TrainingPhaseKind] = [
-        .warmup, .skillPractice, .strength, .fatigueResistance, .running, .stretching
+        .warmup, .skillPractice, .strength, .fatigueResistance, .stretching, .running
     ]
 
     /// 페이스 타이머(9분 랩)를 쓰는 구간.
