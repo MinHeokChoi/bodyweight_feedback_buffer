@@ -68,6 +68,7 @@ extension TrainingPhaseKind {
         case .skillPractice: DS.Segment.skillPractice
         case .strength: DS.Segment.strength
         case .fatigueResistance: DS.Segment.fatigueResistance
+        case .running: DS.Segment.running
         }
     }
 }

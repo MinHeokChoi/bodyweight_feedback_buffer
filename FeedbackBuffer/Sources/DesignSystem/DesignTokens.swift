@@ -88,6 +88,8 @@ enum DS {
         static let strength = Color(light: 0xFF6B4A, dark: 0xFF8A66)
         /// 피로저항 — 깊은 코랄
         static let fatigueResistance = Color(light: 0xB84A2B, dark: 0xE0704C)
+        /// 러닝 — 코랄 계열 밖의 청색. 유일한 유산소라 한눈에 구분되게 둔다
+        static let running = Color(light: 0x3D7EA6, dark: 0x6FB2D9)
         /// 휴식 — 구간이 아니므로 중립색
         static var rest: Color { Color(.systemGray3) }
     }

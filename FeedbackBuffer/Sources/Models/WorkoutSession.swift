@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Phase kind
 
-/// 세션 안의 훈련 종류. 고정 5종이며 사용자가 추가하거나 이름을 바꿀 수 없다.
+/// 세션 안의 훈련 종류. 고정 6종이며 사용자가 추가하거나 이름을 바꿀 수 없다.
 ///
 /// 휴식은 케이스가 아니다. 구간 타이머가 꺼져 있고 누적 타이머만 도는
 /// 간격으로 계산된다. `WorkoutSession.restDuration` 참고.
@@ -12,6 +12,7 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case skillPractice
     case strength
     case fatigueResistance
+    case running
 
     var id: String { rawValue }
 
@@ -22,6 +23,7 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .skillPractice: "기술 연습"
         case .strength: "스트렝스"
         case .fatigueResistance: "피로저항"
+        case .running: "러닝"
         }
     }
 
@@ -32,6 +34,7 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .skillPractice: "figure.gymnastics"
         case .strength: "dumbbell.fill"
         case .fatigueResistance: "bolt.heart.fill"
+        case .running: "figure.run"
         }
     }
 
@@ -41,7 +44,7 @@ enum TrainingPhaseKind: String, Codable, CaseIterable, Identifiable, Hashable {
     /// 이 순서는 **고정이다.** 상황에 따라 카드 위치가 바뀌면 손이 위치를
     /// 기억할 수 없어 매번 읽고 찾아야 한다.
     static let recommendedOrder: [TrainingPhaseKind] = [
-        .warmup, .skillPractice, .strength, .fatigueResistance, .stretching
+        .warmup, .skillPractice, .strength, .fatigueResistance, .running, .stretching
     ]
 
     /// 페이스 타이머(9분 랩)를 쓰는 구간.
