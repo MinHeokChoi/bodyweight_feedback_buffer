@@ -60,9 +60,9 @@ final class WarmupStore {
         } catch {
             AppLog.persistence.error("warmup sessions load failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "웜업 세션을 불러오지 못했습니다",
+                title: "웜업 루틴을 불러오지 못했어요",
                 error: error,
-                recovery: "기본 웜업 세션으로 시작합니다."
+                recovery: "기본 웜업 루틴으로 시작해요."
             )
         }
 
@@ -88,9 +88,9 @@ final class WarmupStore {
         } catch {
             AppLog.persistence.error("warmup sessions seed save failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "웜업 세션을 저장하지 못했습니다",
+                title: "웜업 루틴을 저장하지 못했어요",
                 error: error,
-                recovery: "기본 세션은 메모리에서 사용할 수 있어요. 다시 시도하면 저장됩니다."
+                recovery: "기본 루틴은 지금은 쓸 수 있어요. 다시 시도하면 저장돼요."
             )
         }
         warmupRepository.saveSelectedSessionId(initialSession.id)
@@ -320,7 +320,7 @@ final class WarmupStore {
         let repository = warmupRepository
         scheduleSave(
             { try repository.saveSessions(snapshot) },
-            failureTitle: "웜업 세션을 저장하지 못했습니다"
+            failureTitle: "웜업 루틴을 저장하지 못했어요"
         )
     }
 

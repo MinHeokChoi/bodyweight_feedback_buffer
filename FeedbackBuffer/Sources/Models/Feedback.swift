@@ -10,10 +10,12 @@ enum FeedbackCategory: String, Codable, Hashable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// "기술 훈련"은 타이머 구간 "기술 연습"과 같은 아이콘을 쓰면서 이름이 달랐다.
+    /// 범주는 짧게 "체력 / 기술"로 부른다. 필터 칩 자리도 넉넉해진다.
     var displayName: String {
         switch self {
-        case .physical: "체력 훈련"
-        case .skill: "기술 훈련"
+        case .physical: "체력"
+        case .skill: "기술"
         }
     }
 

@@ -26,7 +26,8 @@ struct SkillDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("탭", selection: $section) {
-                Text("활성").tag(Section.active)
+                // 버퍼 빈 상태와 라이브러리 타일이 쓰는 말("쌓인")과 맞춘다.
+                Text("쌓인 것").tag(Section.active)
                 Text("보관함").tag(Section.archived)
             }
             .pickerStyle(.segmented)
@@ -36,6 +37,7 @@ struct SkillDetailView: View {
 
             content
         }
+        .background(DS.Surface.page.ignoresSafeArea())
         .undoBanner()
         .navigationTitle(skill.name)
         .navigationBarTitleDisplayMode(.inline)

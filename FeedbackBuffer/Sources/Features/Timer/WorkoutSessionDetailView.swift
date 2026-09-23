@@ -101,7 +101,7 @@ struct WorkoutSessionDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(WorkoutTimeFormat.clock(duration))
+                        Text(WorkoutTimeFormat.compact(duration))
                             .font(DS.Typo.number)
                     }
                     .accessibilityElement(children: .combine)
@@ -115,9 +115,9 @@ struct WorkoutSessionDetailView: View {
             HStack {
                 Label(segment.kind.displayName, systemImage: segment.kind.systemImage)
                     .font(DS.Typo.value)
-                    .foregroundStyle(segment.kind.tint)
+                    .foregroundStyle(segment.kind.tint.readableText)
                 Spacer()
-                Text(WorkoutTimeFormat.clock(segment.duration(pauses: session.pauses)))
+                Text(WorkoutTimeFormat.compact(segment.duration(pauses: session.pauses)))
                     .font(DS.Typo.number)
             }
 
@@ -137,6 +137,7 @@ struct WorkoutSessionDetailView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
+                        // 랩은 9:00과 견줘 보는 값이라 초까지 시계 표기로 둔다.
                         Text(WorkoutTimeFormat.clock(lap.duration))
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(lap.duration >= lap.targetDuration ? .primary : .secondary)

@@ -86,7 +86,7 @@ struct MeasurementItemEditorSheet: View {
             HStack(spacing: DS.Spacing.sm) {
                 ForEach(store.categories, id: \.self) { name in
                     Button(name) { category = name }
-                        .buttonStyle(.bordered)
+                        .dsBorderedButton()
                         .controlSize(.small)
                 }
             }
@@ -335,7 +335,7 @@ struct MeasurementSeasonsSheet: View {
                                 if season.id == store.currentSeason?.id {
                                     Text("진행 중")
                                         .font(.caption2)
-                                        .foregroundStyle(Color.accentColor)
+                                        .foregroundStyle(DS.Tint.accentText)
                                 }
                             }
                             .contentShape(Rectangle())

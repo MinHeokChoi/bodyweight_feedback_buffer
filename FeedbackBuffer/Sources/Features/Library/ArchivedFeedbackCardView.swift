@@ -19,9 +19,7 @@ struct ArchivedFeedbackCardView: View {
             metaRow
             actions
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+        .dsCard(padding: 14)
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .confirmationDialog(
             "이 피드백을 삭제할까요?",
@@ -31,7 +29,7 @@ struct ArchivedFeedbackCardView: View {
             Button("삭제", role: .destructive, action: onDelete)
             Button("취소", role: .cancel) { }
         } message: {
-            Text("삭제 후에는 되돌릴 수 없습니다.")
+            Text("지우면 되돌릴 수 없어요.")
         }
     }
 
@@ -50,7 +48,7 @@ struct ArchivedFeedbackCardView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: DS.Radius.inner, style: .continuous))
     }
 
     /// 큰 글씨에서는 한 줄에 칩 하나씩 쌓는다. 너비를 재서 고르면(ViewThatFits)

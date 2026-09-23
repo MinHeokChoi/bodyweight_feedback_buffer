@@ -175,12 +175,14 @@ struct BufferView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 앱 전체가 같은 바탕과 카드를 쓴다: 회색 바탕에 흰 카드(다크에서는 검정에 짙은 회색).
+        .background(DS.Surface.page.ignoresSafeArea())
         // 칩 막대를 목록 위 여백으로 붙인다. 목록 바깥 VStack에 두면 큰 제목이
         // 스크롤해도 접히지 않아 화면 위쪽 4분의 1을 계속 차지했다.
         .safeAreaInset(edge: .top, spacing: 0) {
             // 바탕은 칩 막대 자리에만 깐다. 기본값대로 안전 영역까지 늘어나면 큰 제목을 덮는다.
             filterBar
-                .background(Color(.systemBackground), ignoresSafeAreaEdges: [])
+                .background(DS.Surface.page, ignoresSafeAreaEdges: [])
         }
     }
 
@@ -303,6 +305,7 @@ struct BufferView: View {
                 withAnimation { temporaryOrder = nil }
             }
             .font(.caption.weight(.semibold))
+            .foregroundStyle(DS.Tint.accentText)
             .buttonStyle(.borderless)
         }
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -361,7 +364,7 @@ struct BufferView: View {
                     .lineLimit(1)
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            .foregroundStyle(isSelected ? DS.Tint.accentText : Color.secondary)
             .padding(.horizontal, 12)
             .frame(minHeight: 34)
             .modifier(CategoryToggleSurface(isSelected: isSelected))
@@ -376,14 +379,14 @@ struct BufferView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
+            Label("아직 쌓인 피드백이 없어요", systemImage: "tray")
         } description: {
             Text("오른쪽 위 + 버튼으로 오늘 느낀 점을 추가해보세요.")
         } actions: {
             Button("기술 라이브러리 보기") {
                 tabSelection = .library
             }
-            .buttonStyle(.bordered)
+            .dsBorderedButton()
         }
     }
 
@@ -394,7 +397,7 @@ struct BufferView: View {
             Button("전체 보기") {
                 filterValue = BufferFilter.all.storageValue
             }
-            .buttonStyle(.bordered)
+            .dsBorderedButton()
         }
     }
 }

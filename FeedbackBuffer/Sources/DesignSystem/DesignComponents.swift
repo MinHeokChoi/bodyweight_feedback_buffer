@@ -30,9 +30,20 @@ extension View {
     }
 }
 
+// MARK: - Bordered button
+
+extension View {
+    /// 테두리 버튼. 글자가 회색 바탕 위에 놓이므로 accent 코랄은 진한 글자색으로 쓴다.
+    /// 코랄 그대로는 회색 바탕 위에서 약 2.2:1이었다("일시정지", "건너뛰기").
+    func dsBorderedButton(tint: Color = DS.Tint.accentText) -> some View {
+        buttonStyle(.bordered).tint(tint)
+    }
+}
+
 // MARK: - Pill
 
 /// 구간명처럼 상태를 나타내는 캡슐. 기존 웜업 러너의 "이미 완료" 배지와 같은 문법이다.
+/// 바탕은 색을 옅게 깔고, 글자는 같은 색을 진하게 써서 읽히게 한다.
 struct DSPill: View {
     let text: String
     var color: Color = .accentColor
@@ -40,7 +51,7 @@ struct DSPill: View {
     var body: some View {
         Text(text)
             .font(DS.Typo.metaLabel.weight(.semibold))
-            .foregroundStyle(color)
+            .foregroundStyle(color.readableText)
             .padding(.horizontal, DS.Spacing.md)
             .padding(.vertical, 6)
             .background(color.opacity(0.12), in: Capsule())
@@ -50,6 +61,8 @@ struct DSPill: View {
 // MARK: - Metric tile
 
 /// 작은 뮤트 라벨 위, 큰 값 아래. 통계 요약에 쓴다.
+/// 한 줄에 둘씩 놓이므로 설명이 없는 타일도 옆 타일과 높이를 맞춘다. 쓰는 곳의 HStack에는
+/// `.fixedSize(horizontal: false, vertical: true)`를 건다.
 struct DSMetric: View {
     let label: String
     let value: String
@@ -69,6 +82,7 @@ struct DSMetric: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .dsTile()
         .accessibilityElement(children: .combine)
     }

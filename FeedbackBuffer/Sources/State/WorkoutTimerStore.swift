@@ -40,7 +40,7 @@ final class WorkoutTimerStore {
         } catch {
             AppLog.persistence.error("workout sessions load failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "운동 기록을 불러오지 못했습니다",
+                title: "운동 기록을 불러오지 못했어요",
                 error: error,
                 recovery: "새 운동은 정상적으로 기록할 수 있어요."
             )
@@ -54,7 +54,7 @@ final class WorkoutTimerStore {
         } catch {
             AppLog.persistence.error("active workout load failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "진행 중이던 운동을 불러오지 못했습니다",
+                title: "진행 중이던 운동을 불러오지 못했어요",
                 error: error,
                 recovery: "새 운동을 시작할 수 있어요."
             )
@@ -324,7 +324,7 @@ final class WorkoutTimerStore {
         } catch {
             AppLog.persistence.error("active workout save failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "진행 중인 운동을 저장하지 못했습니다",
+                title: "진행 중인 운동을 저장하지 못했어요",
                 error: error,
                 recovery: "타이머는 계속 동작해요. 앱을 종료하면 이 세션이 사라질 수 있어요."
             )
@@ -349,7 +349,7 @@ final class WorkoutTimerStore {
                 AppLog.persistence.error("workout sessions save failed: \(error.localizedDescription, privacy: .public)")
                 Task { @MainActor in
                     self?.reportPersistenceIssue(
-                        title: "운동 기록을 저장하지 못했습니다",
+                        title: "운동 기록을 저장하지 못했어요",
                         error: error,
                         recovery: "앱을 종료하기 전에 저장 공간과 파일 권한을 확인해 주세요."
                     )

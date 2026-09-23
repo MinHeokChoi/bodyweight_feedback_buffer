@@ -14,7 +14,10 @@ enum WorkoutTimeFormat {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    /// 통계·목록용. "1시간 24분" 형태로 읽기 쉽게.
+    /// 통계·목록·기록용. "1시간 24분" 형태로 읽기 쉽게.
+    ///
+    /// 표기 규칙: 기록과 통계는 이것으로, 운동 중 화면(휴식 화면 포함, FR-1의 "스트렝스 완료 27:00")과
+    /// 9:00과 견주는 랩은 `clock`으로 쓴다.
     ///
     /// 0은 "0분"이다. "0초"는 초 단위로 잰 것처럼 읽힌다.
     static func compact(_ interval: TimeInterval) -> String {

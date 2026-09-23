@@ -45,8 +45,8 @@ struct ImportancePicker: View {
         switch value {
         case 1...2: .secondary
         case 3: .primary
-        case 4: .orange
-        case 5: .red
+        case 4: Color.orange.readableText
+        case 5: Color.red.readableText
         default: .secondary
         }
     }

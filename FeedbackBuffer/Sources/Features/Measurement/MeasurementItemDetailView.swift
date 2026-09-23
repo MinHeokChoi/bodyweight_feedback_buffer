@@ -46,8 +46,14 @@ struct MeasurementItemDetailView: View {
                 }
                 .accessibilityLabel("측정값 기록")
             }
+            // 툴바는 아이콘으로만 둔다. 글자 버튼이 섞이면 "+ 수정"이 한 덩어리로 읽혔다.
             ToolbarItem(placement: .topBarTrailing) {
-                Button("수정") { editing = true }
+                Button {
+                    editing = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityLabel("종목 수정")
             }
         }
         .sheet(isPresented: $recording) {
@@ -119,7 +125,7 @@ struct MeasurementItemDetailView: View {
             if entry.constraintChanged {
                 Label("이때는 제약이 달랐어요", systemImage: "exclamationmark.triangle")
                     .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.orange.readableText)
             }
 
             // 한 번만 잰 시즌도 줄을 그린다. 그래야 잘못 적은 값을 고치거나 지울 수 있다.

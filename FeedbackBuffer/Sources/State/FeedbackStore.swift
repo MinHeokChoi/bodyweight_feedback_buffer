@@ -82,9 +82,9 @@ final class FeedbackStore {
             feedbacks = []
             AppLog.persistence.error("feedback bootstrap failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "데이터를 불러오지 못했습니다",
+                title: "데이터를 불러오지 못했어요",
                 error: error,
-                recovery: "기본 기술 목록으로 시작합니다. 기존 기록 파일을 확인한 뒤 다시 시도해 주세요."
+                recovery: "기본 기술 목록으로 시작해요. 기존 기록 파일을 확인한 뒤 다시 시도해 주세요."
             )
         }
     }
@@ -375,7 +375,7 @@ final class FeedbackStore {
         let repository = feedbackRepository
         scheduleSave(
             { try repository.saveFeedbacks(snapshot) },
-            failureTitle: "피드백을 저장하지 못했습니다"
+            failureTitle: "피드백을 저장하지 못했어요"
         )
     }
 
@@ -384,7 +384,7 @@ final class FeedbackStore {
         let repository = feedbackRepository
         scheduleSave(
             { try repository.saveSkills(snapshot) },
-            failureTitle: "기술 목록을 저장하지 못했습니다"
+            failureTitle: "기술 목록을 저장하지 못했어요"
         )
     }
 

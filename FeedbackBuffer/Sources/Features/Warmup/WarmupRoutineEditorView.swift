@@ -80,7 +80,7 @@ struct WarmupRoutineEditorView: View {
                 }
                 Button("취소", role: .cancel) { deletingItem = nil }
             } message: {
-                Text("삭제 후에는 되돌릴 수 없습니다.")
+                Text("지우면 되돌릴 수 없어요.")
             }
             .confirmationDialog(
                 "웜업 루틴을 기본값으로 되돌릴까요?",
@@ -92,7 +92,7 @@ struct WarmupRoutineEditorView: View {
                 }
                 Button("취소", role: .cancel) { }
             } message: {
-                Text("오늘의 체크 상태도 함께 초기화됩니다.")
+                Text("오늘 체크한 것도 함께 풀려요.")
             }
         }
     }

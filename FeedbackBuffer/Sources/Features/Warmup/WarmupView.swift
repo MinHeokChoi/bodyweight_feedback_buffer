@@ -12,25 +12,20 @@ struct WarmupView: View {
             // 항목 목록은 두지 않는다. 시작을 누르면 러너에서 하나씩 보이므로
             // 탭에서 미리 볼 이유가 없다. 여기서 답할 질문은 하나뿐이다 —
             // 지금 시작할까, 오늘 이미 했나.
-            List {
-                Section {
+            // List에 두면 섹션 모양이 카드 모서리를 크게 깎아 다른 탭의 카드와 달라졌다.
+            // 줄 목록이 아니라 카드 몇 장이라 ScrollView로 둔다.
+            ScrollView {
+                VStack(spacing: DS.Spacing.lg) {
                     routineRow
-                }
-
-                Section {
+                    // 위아래 카드와 같은 가장자리에 맞춘다. 시작 버튼만 안쪽으로 들어가 있었다.
                     startCTA
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 16, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-
                     progressHeader
-                        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                    resetButton
                 }
-
-                resetSection
+                .padding(.horizontal, DS.Spacing.lg)
+                .padding(.vertical, DS.Spacing.sm)
             }
+            .background(DS.Surface.page.ignoresSafeArea())
             .navigationTitle("웜업")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -41,6 +36,17 @@ struct WarmupView: View {
                     }
                     .accessibilityLabel("웜업 루틴 수정")
                 }
+            }
+            .confirmationDialog(
+                "오늘 체크한 웜업을 모두 풀까요?",
+                isPresented: $confirmingReset,
+                titleVisibility: .visible
+            ) {
+                Button("모두 풀기", role: .destructive) {
+                    withAnimation { store.resetWarmupToday() }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+                Button("취소", role: .cancel) { }
             }
             .sheet(isPresented: $editingRoutine) {
                 WarmupRoutineEditorView().environment(store)
@@ -61,7 +67,7 @@ struct WarmupView: View {
         // 오늘 할 일이 끝났으면 화면에서 가장 센 요소일 이유가 없다.
         if store.isWarmupComplete {
             startButton(title: "웜업 다시 하기", symbol: "arrow.counterclockwise")
-                .buttonStyle(.bordered)
+                .dsBorderedButton()
                 .controlSize(.large)
                 .disabled(store.warmup.isEmpty)
         } else {
@@ -112,58 +118,31 @@ struct WarmupView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 18)
-            .background {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.vertical, 2)
+            .dsCard()
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
-        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 0))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
         .accessibilityLabel("웜업 루틴 변경")
         .accessibilityValue(store.currentWarmupSession?.name ?? "")
     }
 
+    /// 지울 게 있을 때만 보인다. 확인은 다른 파괴적 동작처럼 대화상자로 묻는다 —
+    /// 같은 자리가 "예"로 바뀌던 방식은 두 번 치면 바로 지워졌다.
+    /// "기록"은 타이머·측정에서 쓰는 말이라 여기서는 체크를 푼다고 말한다.
     @ViewBuilder
-    private var resetSection: some View {
-        if confirmingReset {
-            Section {
-                Button(role: .destructive) {
-                    withAnimation {
-                        store.resetWarmupToday()
-                        confirmingReset = false
-                    }
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                } label: {
-                    Label("예", systemImage: "checkmark")
-                }
-
-                Button(role: .cancel) {
-                    withAnimation { confirmingReset = false }
-                } label: {
-                    Label("아니오", systemImage: "xmark")
-                }
-            } header: {
-                Text("오늘의 웜업 기록을 지울까요?")
+    private var resetButton: some View {
+        if store.isWarmupComplete || store.checkedCount > 0 {
+            Button(role: .destructive) {
+                confirmingReset = true
+            } label: {
+                Label("오늘 체크 모두 풀기", systemImage: "arrow.counterclockwise")
+                    .font(.body)
+                    .foregroundStyle(Color.red.readableText)
+                    .dsCard(padding: DS.Spacing.md)
+                    .contentShape(Rectangle())
             }
-        } else {
-            Section {
-                Button(role: .destructive) {
-                    withAnimation { confirmingReset = true }
-                } label: {
-                    Label("오늘 기록 지우기", systemImage: "arrow.counterclockwise")
-                }
-                .disabled(!store.isWarmupComplete && store.checkedCount == 0)
-            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -191,7 +170,7 @@ struct WarmupView: View {
             if store.isWarmupComplete {
                 Label("오늘의 웜업 완료!", systemImage: "checkmark.seal.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.green.readableText)
                     .padding(.top, 4)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             } else {
@@ -200,17 +179,8 @@ struct WarmupView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 18)
-        .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
-        }
+        .padding(.vertical, 2)
+        .dsCard()
     }
 
     private var completionDetail: String {

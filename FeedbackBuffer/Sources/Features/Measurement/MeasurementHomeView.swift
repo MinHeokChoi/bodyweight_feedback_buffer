@@ -14,7 +14,14 @@ struct MeasurementHomeView: View {
     var body: some View {
         Group {
             if store.items.isEmpty {
-                emptyState
+                // 종목을 다 지워도 시즌은 남는다. 시즌 관리로 가는 길은 빈 화면에도 둔다.
+                VStack(spacing: 0) {
+                    if !store.seasons.isEmpty {
+                        currentSeasonBar
+                            .padding(DS.Spacing.lg)
+                    }
+                    emptyState
+                }
             } else {
                 list
             }
@@ -23,14 +30,8 @@ struct MeasurementHomeView: View {
         .navigationTitle("시즌 측정")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    managingSeasons = true
-                } label: {
-                    Image(systemName: "calendar")
-                }
-                .accessibilityLabel("시즌 관리")
-            }
+            // 시즌 관리는 "이번 시즌" 줄을 눌러 연다. 뒤로 가기 옆의 달력 아이콘은
+            // 무엇을 여는지 알기 어려웠다.
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     creatingItem = true
@@ -76,9 +77,7 @@ struct MeasurementHomeView: View {
     private var list: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                if let season = store.currentSeason {
-                    currentSeasonBar(season)
-                }
+                currentSeasonBar
 
                 ForEach(store.itemsByCategory, id: \.category) { group in
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -110,17 +109,28 @@ struct MeasurementHomeView: View {
         }
     }
 
-    private func currentSeasonBar(_ season: MeasurementSeason) -> some View {
-        HStack {
-            Text("이번 시즌")
-                .font(DS.Typo.metaLabel)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(season.name)
-                .font(DS.Typo.value)
+    private var currentSeasonBar: some View {
+        Button {
+            managingSeasons = true
+        } label: {
+            HStack(spacing: DS.Spacing.sm) {
+                Text("이번 시즌")
+                    .font(DS.Typo.metaLabel)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(store.currentSeason?.name ?? "아직 없음")
+                    .font(DS.Typo.value)
+                    .foregroundStyle(.primary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .dsCard(padding: DS.Spacing.md)
+            .contentShape(Rectangle())
         }
-        .dsCard(padding: DS.Spacing.md)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint("시즌을 관리해요")
     }
 
     private func itemRow(_ item: MeasurementItem) -> some View {
@@ -193,7 +203,7 @@ struct MeasurementChangeBadge: View {
                 systemImage: improvement > 0 ? "arrow.up.right" : "arrow.down.right"
             )
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(improvement > 0 ? Color.green : Color.orange)
+            .foregroundStyle((improvement > 0 ? Color.green : Color.orange).readableText)
             .accessibilityLabel(improvement > 0 ? "개선" : "후퇴")
             .accessibilityValue(unit.format(abs(improvement)))
         }

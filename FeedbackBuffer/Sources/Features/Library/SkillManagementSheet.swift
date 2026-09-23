@@ -92,7 +92,7 @@ struct SkillManagementSheet: View {
             } message: {
                 if let deletingSkill {
                     let count = store.feedbackCount(forSkillId: deletingSkill.id)
-                    Text(count == 0 ? "삭제 후에는 되돌릴 수 없습니다." : "연결된 피드백 \(count)개도 함께 삭제됩니다.")
+                    Text(count == 0 ? "지우면 되돌릴 수 없어요." : "연결된 피드백 \(count)개도 함께 지워져요.")
                 }
             }
         }
@@ -105,7 +105,7 @@ struct SkillManagementSheet: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(skill.name)
                     .foregroundStyle(.primary)
-                Text("활성 피드백 \(activeCount)개")
+                Text("쌓인 피드백 \(activeCount)개")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -31,7 +31,7 @@ final class MeasurementStore {
         } catch {
             AppLog.persistence.error("measurement bootstrap failed: \(error.localizedDescription, privacy: .public)")
             reportPersistenceIssue(
-                title: "측정 기록을 불러오지 못했습니다",
+                title: "측정 기록을 불러오지 못했어요",
                 error: error,
                 recovery: "빈 목록으로 시작해요. 저장된 파일은 그대로 있어요."
             )
@@ -186,19 +186,19 @@ final class MeasurementStore {
     private func persistItems() {
         let snapshot = items
         let repository = repository
-        scheduleSave({ try repository.saveItems(snapshot) }, failureTitle: "측정 종목을 저장하지 못했습니다")
+        scheduleSave({ try repository.saveItems(snapshot) }, failureTitle: "측정 종목을 저장하지 못했어요")
     }
 
     private func persistSeasons() {
         let snapshot = seasons
         let repository = repository
-        scheduleSave({ try repository.saveSeasons(snapshot) }, failureTitle: "시즌을 저장하지 못했습니다")
+        scheduleSave({ try repository.saveSeasons(snapshot) }, failureTitle: "시즌을 저장하지 못했어요")
     }
 
     private func persistRecords() {
         let snapshot = records
         let repository = repository
-        scheduleSave({ try repository.saveRecords(snapshot) }, failureTitle: "측정 기록을 저장하지 못했습니다")
+        scheduleSave({ try repository.saveRecords(snapshot) }, failureTitle: "측정 기록을 저장하지 못했어요")
     }
 
     private func scheduleSave(_ work: @escaping () throws -> Void, failureTitle: String) {

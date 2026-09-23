@@ -177,7 +177,7 @@ struct WorkoutSessionEditorView: View {
         } footer: {
             if isFutureDate {
                 Text("아직 오지 않은 날짜예요.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.red.readableText)
             }
         }
     }

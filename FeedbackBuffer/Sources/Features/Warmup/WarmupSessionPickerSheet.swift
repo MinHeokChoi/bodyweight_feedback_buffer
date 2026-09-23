@@ -58,7 +58,7 @@ struct WarmupSessionPickerSheet: View {
                 }
                 Button("취소", role: .cancel) { deletingSession = nil }
             } message: {
-                Text("루틴의 항목과 오늘의 체크 기록이 함께 사라져요.")
+                Text("루틴의 항목과 오늘 체크한 것이 함께 사라져요.")
             }
         }
     }

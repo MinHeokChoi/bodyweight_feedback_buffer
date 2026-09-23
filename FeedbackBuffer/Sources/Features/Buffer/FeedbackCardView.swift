@@ -23,9 +23,7 @@ struct FeedbackCardView: View {
             metaRow
             actions
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+        .dsCard(padding: 14)
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .confirmationDialog(
             "이 피드백을 삭제할까요?",
@@ -35,7 +33,7 @@ struct FeedbackCardView: View {
             Button("삭제", role: .destructive, action: onDelete)
             Button("취소", role: .cancel) { }
         } message: {
-            Text("삭제 후에는 되돌릴 수 없습니다.")
+            Text("지우면 되돌릴 수 없어요.")
         }
     }
 
@@ -47,11 +45,6 @@ struct FeedbackCardView: View {
 
     private var cueView: some View {
         HStack(alignment: .top, spacing: 6) {
-//            Image(systemName: "quote.opening")
-//                .font(.caption.weight(.semibold))
-//                .foregroundStyle(.secondary)
-//                .padding(.top, 2)
-
             Text(feedback.note)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.primary)
@@ -60,7 +53,7 @@ struct FeedbackCardView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: DS.Radius.inner, style: .continuous))
     }
 
     /// 카드에는 중요도만 둔다. 순서를 사용자가 정하게 되면서 나머지 숫자는
@@ -71,7 +64,7 @@ struct FeedbackCardView: View {
             // 오래 묵은 것만 스스로 드러난다. 순서는 건드리지 않는다.
             if feedback.isStale {
                 metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일째")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.orange.readableText)
                     .accessibilityLabel("\(feedback.daysSinceLastReviewed)일째 손대지 않음")
             }
         }

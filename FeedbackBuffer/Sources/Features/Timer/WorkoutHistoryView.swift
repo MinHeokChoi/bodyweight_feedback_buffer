@@ -54,7 +54,7 @@ struct WorkoutHistoryView: View {
             }
             Button("취소", role: .cancel) { pendingDelete = nil }
         } message: {
-            Text("삭제 후에는 되돌릴 수 없습니다.")
+            Text("지우면 되돌릴 수 없어요.")
         }
     }
 
@@ -107,7 +107,9 @@ struct WorkoutHistoryView: View {
                     .font(DS.Typo.metaLabel)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(WorkoutTimeFormat.clock(session.trainingDuration()))
+                // 기록은 "59분"처럼 읽는다. 날짜 머리말의 합계와 같은 표기다.
+                // 시계 표기는 지금 흐르는 시간(운동 중 화면)에만 쓴다.
+                Text(WorkoutTimeFormat.compact(session.trainingDuration()))
                     .font(DS.Typo.number)
             }
 
@@ -133,7 +135,7 @@ struct WorkoutHistoryView: View {
                 .font(DS.Typo.metaLabel)
                 .foregroundStyle(.secondary)
             Button("직접 추가하기") { editorMode = .create }
-                .buttonStyle(.bordered)
+                .dsBorderedButton()
                 .padding(.top, DS.Spacing.xs)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

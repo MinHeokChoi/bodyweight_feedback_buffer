@@ -116,6 +116,27 @@ enum DS {
 // MARK: - Color helpers
 
 extension Color {
+    /// 틴트 색을 글자로 쓸 때의 변형. 라이트 모드에서만 명도를 낮춘다.
+    ///
+    /// 구간 색과 시스템 주황·초록은 채움에 맞춰 밝게 잡혀 있어서, 같은 색의 옅은 바탕이나
+    /// 흰 바탕 위 글자로 쓰면 대비가 2:1 안팎이었다("웜업 완료", 묵은 표시, 개선 배지).
+    /// 색을 새로 만들지 않고 같은 색의 명도만 낮춘다. 다크 모드는 원래 색으로 충분히 읽힌다.
+    var readableText: Color {
+        // accentColor는 UIColor로 옮기면 앱의 AccentColor가 아니라 시스템 파랑이 된다.
+        // 글자용 코랄은 이미 정해 두었으니 그것을 쓴다.
+        if self == .accentColor { return DS.Tint.accentText }
+        let base = UIColor(self)
+        return Color(uiColor: UIColor { trait in
+            let resolved = base.resolvedColor(with: trait)
+            guard trait.userInterfaceStyle != .dark else { return resolved }
+            var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+            guard resolved.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+                return resolved
+            }
+            return UIColor(hue: hue, saturation: saturation, brightness: brightness * 0.66, alpha: alpha)
+        })
+    }
+
     /// 라이트·다크 모드에서 각각 다른 16진 값을 쓰는 색.
     init(light: UInt32, dark: UInt32) {
         self.init(uiColor: UIColor { trait in

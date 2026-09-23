@@ -150,7 +150,7 @@ struct TimerView: View {
                         .font(DS.Typo.buttonLabel)
                         .frame(maxWidth: .infinity, minHeight: 44)
                     }
-                    .buttonStyle(.bordered)
+                    .dsBorderedButton()
                     .controlSize(.large)
 
                     Button {
@@ -315,7 +315,7 @@ struct TimerView: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.bordered)
+            .dsBorderedButton()
             .controlSize(.large)
         }
     }
@@ -387,7 +387,7 @@ struct TimerView: View {
                                     .font(DS.Typo.buttonLabel)
                                     .frame(minHeight: 44)
                             }
-                            .buttonStyle(.bordered)
+                            .dsBorderedButton()
                         }
                     }
                     .padding(.top, DS.Spacing.sm)
@@ -417,7 +417,7 @@ struct TimerView: View {
                                 .font(DS.Typo.metaLabel)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .dsBorderedButton()
 
                         // 한 번만 누르는 버튼이 쉬는 동안 가장 센 요소일 이유가 없다(N4와 같은 논리).
                         // 확인 창이 있으니 무게를 낮춰도 안전하다. 빨강은 확인 창의 "버리기"에만 남긴다.
@@ -428,8 +428,7 @@ struct TimerView: View {
                                 .font(DS.Typo.buttonLabel)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
+                        .dsBorderedButton(tint: Color.red.readableText)
                         .controlSize(.large)
                         .padding(.top, DS.Spacing.md)
                     }
@@ -492,12 +491,12 @@ struct TimerView: View {
             HStack {
                 Label("\(segment.kind.displayName) 완료", systemImage: "checkmark.circle.fill")
                     .font(DS.Typo.metaLabel)
-                    .foregroundStyle(segment.kind.tint)
+                    .foregroundStyle(segment.kind.tint.readableText)
                 Spacer()
                 // 같은 구간을 여러 번 했다면 마지막 블록이 아니라 합친 시간을 보여준다.
                 Text(WorkoutTimeFormat.clock(total))
                     .font(DS.Typo.number)
-                    .foregroundStyle(segment.kind.tint)
+                    .foregroundStyle(segment.kind.tint.readableText)
             }
 
             if blocks > 1 {

@@ -56,6 +56,7 @@ struct WorkoutStatisticsView: View {
                     caption: "세션 \(summary.sessionCount)회"
                 )
             }
+            .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: DS.Spacing.sm) {
                 DSMetric(
                     label: "세션당 평균",
@@ -67,6 +68,7 @@ struct WorkoutStatisticsView: View {
                     caption: "최장 \(summary.longestStreak)일"
                 )
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 

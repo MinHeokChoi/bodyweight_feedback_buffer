@@ -99,7 +99,7 @@ struct WarmupSessionRunnerView: View {
                     if item.checked {
                         Label("이미 완료", systemImage: "checkmark.seal.fill")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.green.readableText)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color.green.opacity(0.12), in: Capsule())
@@ -141,7 +141,7 @@ struct WarmupSessionRunnerView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .dsBorderedButton()
                 .controlSize(.large)
             }
             .disabled(isAdvancing)
@@ -203,7 +203,7 @@ struct WarmupSessionRunnerView: View {
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
-                    .buttonStyle(.bordered)
+                    .dsBorderedButton()
                     .controlSize(.large)
                 } else {
                     Button {
