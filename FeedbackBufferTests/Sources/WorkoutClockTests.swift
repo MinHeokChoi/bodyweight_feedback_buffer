@@ -179,6 +179,72 @@ final class WorkoutClockTests: XCTestCase {
         XCTAssertEqual(state.lapElapsed, 0)
     }
 
+    // MARK: - 경계 신호
+
+    private func signal(_ old: TimeInterval, _ new: TimeInterval) -> WorkoutClock.PaceSignal? {
+        WorkoutClock.boundarySignal(
+            from: WorkoutClock.paceState(elapsed: old),
+            to: WorkoutClock.paceState(elapsed: new)
+        )
+    }
+
+    /// 처음 넘는 3분 경계도 울려야 한다. 전에는 이전 값이 비어 있어서 놓쳤다.
+    func testFirstSetBoundarySignals() {
+        XCTAssertEqual(signal(179.4, 180.3), .set)
+    }
+
+    func testSecondSetBoundarySignals() {
+        XCTAssertEqual(signal(359.6, 360.5), .set)
+    }
+
+    /// 9분에서 세트는 3에서 1로 줄어든다. 세트 신호가 아니라 운동 신호 하나만 낸다.
+    func testFirstLapBoundarySignalsLapOnly() {
+        XCTAssertEqual(signal(539.5, 540.4), .lap)
+    }
+
+    func testNoSignalWithinSameSet() {
+        XCTAssertNil(signal(10, 11))
+        XCTAssertNil(signal(200, 201))
+    }
+
+    /// 다른 탭에 있다 돌아와 뒤늦게 알게 된 경계는 울리지 않는다.
+    func testLateSetBoundaryIsSilent() {
+        XCTAssertNil(signal(150, 200))
+    }
+
+    func testLateLapBoundaryIsSilent() {
+        XCTAssertNil(signal(500, 560))
+        XCTAssertNil(signal(100, 1680), "여러 랩을 건너뛰어도 늦은 신호는 없다")
+    }
+
+    /// 창 안에 돌아왔다면 조금 늦었어도 울린다. 1초 갱신이 한 번 밀린 정도다.
+    func testSignalWithinWindowAfterShortGap() {
+        XCTAssertEqual(signal(178, 181.5), .set)
+    }
+
+    /// 운동 경계는 오래전에 지났어도 방금 넘은 세트 경계는 알린다.
+    func testFreshSetBoundaryAfterStaleLapBoundary() {
+        // 7:00(1번째 운동 3세트)에 떠났다가 12:01(2번째 운동 2세트, 세트 안 1초)에 돌아옴
+        XCTAssertEqual(signal(420, 721), .set)
+        XCTAssertNil(signal(420, 800), "세트 경계도 오래됐으면 조용하다")
+    }
+
+    /// 직접 넘긴 운동은 누름 확인 진동만 낸다. 다른 운동 번호는 그대로 알린다.
+    func testManualSkipSuppressesOnlyThatLap() {
+        let old = WorkoutClock.paceState(elapsed: 300)
+        let skipped = WorkoutClock.PaceState(
+            lapIndex: 2, lapElapsed: 0, lapTarget: 540, setIndex: 1, setElapsed: 0, setsPerLap: 3
+        )
+        XCTAssertNil(WorkoutClock.boundarySignal(from: old, to: skipped, skippedToLap: 2))
+        XCTAssertEqual(WorkoutClock.boundarySignal(from: old, to: skipped, skippedToLap: 3), .lap)
+    }
+
+    func testNoSignalWithoutPreviousOrCurrentState() {
+        let state = WorkoutClock.paceState(elapsed: 180.2)
+        XCTAssertNil(WorkoutClock.boundarySignal(from: nil, to: state))
+        XCTAssertNil(WorkoutClock.boundarySignal(from: state, to: nil))
+    }
+
     // MARK: - 랩 소급 기록
 
     func testCompletedLapsIsEmptyBeforeFirstTarget() {

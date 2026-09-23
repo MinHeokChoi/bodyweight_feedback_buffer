@@ -42,6 +42,9 @@ struct WarmupSessionRunnerView: View {
             .navigationTitle(store.currentWarmupSession?.name ?? "")
             .navigationBarTitleDisplayMode(.inline)
         }
+        // 폰을 내려놓고 동작을 하는 동안 화면이 꺼지면 다음 항목을 볼 수 없다.
+        .onAppear { ScreenAwake.set(.warmupRunner, active: true) }
+        .onDisappear { ScreenAwake.set(.warmupRunner, active: false) }
     }
 
     private func itemCard(item: WarmupItem) -> some View {

@@ -9,6 +9,7 @@ struct MeasurementHomeView: View {
     @State private var creatingItem = false
     @State private var managingSeasons = false
     @State private var recordingFor: MeasurementItem?
+    @State private var pendingDeleteItem: MeasurementItem?
 
     var body: some View {
         Group {
@@ -51,6 +52,25 @@ struct MeasurementHomeView: View {
         .sheet(isPresented: $managingSeasons) {
             MeasurementSeasonsSheet().environment(store)
         }
+        // 종목을 지우면 모든 시즌의 기록이 함께 사라진다. 되돌릴 수 없으니 한 번 묻는다.
+        .confirmationDialog(
+            "‘\(pendingDeleteItem?.movement ?? "")’ 종목을 삭제할까요?",
+            isPresented: Binding(
+                get: { pendingDeleteItem != nil },
+                set: { if !$0 { pendingDeleteItem = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) {
+                if let item = pendingDeleteItem { store.deleteItem(item.id) }
+                pendingDeleteItem = nil
+            }
+            Button("취소", role: .cancel) { pendingDeleteItem = nil }
+        } message: {
+            if let item = pendingDeleteItem, store.recordCount(of: item) > 0 {
+                Text("측정 기록 \(store.recordCount(of: item))개도 함께 사라져요.")
+            }
+        }
     }
 
     private var list: some View {
@@ -79,7 +99,7 @@ struct MeasurementHomeView: View {
                                     editingItem = item
                                 }
                                 Button("종목 삭제", systemImage: "trash", role: .destructive) {
-                                    store.deleteItem(item.id)
+                                    pendingDeleteItem = item
                                 }
                             }
                         }

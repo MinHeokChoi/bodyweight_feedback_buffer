@@ -8,6 +8,8 @@ struct MeasurementItemDetailView: View {
     let item: MeasurementItem
     @State private var recording = false
     @State private var editing = false
+    @State private var editingRecord: MeasurementRecord?
+    @State private var pendingDeleteRecord: MeasurementRecord?
 
     private var current: MeasurementItem {
         store.item(item.id) ?? item
@@ -53,6 +55,23 @@ struct MeasurementItemDetailView: View {
         }
         .sheet(isPresented: $editing) {
             MeasurementItemEditorSheet(item: current).environment(store)
+        }
+        .sheet(item: $editingRecord) { record in
+            MeasurementRecordSheet(item: current, record: record).environment(store)
+        }
+        .confirmationDialog(
+            "이 기록을 삭제할까요?",
+            isPresented: Binding(
+                get: { pendingDeleteRecord != nil },
+                set: { if !$0 { pendingDeleteRecord = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) {
+                if let record = pendingDeleteRecord { store.deleteRecord(record.id) }
+                pendingDeleteRecord = nil
+            }
+            Button("취소", role: .cancel) { pendingDeleteRecord = nil }
         }
     }
 
@@ -103,36 +122,47 @@ struct MeasurementItemDetailView: View {
                     .foregroundStyle(.orange)
             }
 
-            if entry.records.count > 1 || entry.records.contains(where: { !$0.note.isEmpty }) {
-                Divider()
-                ForEach(entry.records) { record in
-                    recordRow(record)
-                }
+            // 한 번만 잰 시즌도 줄을 그린다. 그래야 잘못 적은 값을 고치거나 지울 수 있다.
+            Divider()
+            ForEach(entry.records) { record in
+                recordRow(record)
             }
         }
         .dsCard(padding: DS.Spacing.md)
     }
 
     private func recordRow(_ record: MeasurementRecord) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(record.measuredAt, format: .dateTime.month().day())
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(current.unit.format(record.value))
-                    .font(DS.Typo.number)
+        Button {
+            editingRecord = record
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(record.measuredAt, format: .dateTime.month().day())
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(current.unit.format(record.value))
+                        .font(DS.Typo.number)
+                        .foregroundStyle(.primary)
+                }
+                if !record.note.isEmpty {
+                    Text(record.note)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-            if !record.note.isEmpty {
-                Text(record.note)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .accessibilityHint("누르면 고칠 수 있어요")
         .contextMenu {
+            Button("수정", systemImage: "pencil") {
+                editingRecord = record
+            }
             Button("삭제", systemImage: "trash", role: .destructive) {
-                store.deleteRecord(record.id)
+                pendingDeleteRecord = record
             }
         }
     }

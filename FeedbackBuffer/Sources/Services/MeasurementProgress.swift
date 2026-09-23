@@ -86,4 +86,19 @@ enum MeasurementProgress {
     static func current(in seasons: [MeasurementSeason]) -> MeasurementSeason? {
         seasons.max { $0.startedAt < $1.startedAt }
     }
+
+    /// 그 날짜가 속한 시즌. 그 날까지 시작한 시즌 중 가장 늦게 시작한 것이다.
+    ///
+    /// 시즌은 끝나는 날이 없으므로(N16) 날짜만 알면 하나로 정해진다. 날짜는 하루 단위로 본다 —
+    /// 시즌을 오후에 만들어도 그날 오전에 잰 기록은 그 시즌이다.
+    static func season(
+        containing date: Date,
+        in seasons: [MeasurementSeason],
+        calendar: Calendar = .current
+    ) -> MeasurementSeason? {
+        let day = calendar.startOfDay(for: date)
+        return seasons
+            .filter { calendar.startOfDay(for: $0.startedAt) <= day }
+            .max { $0.startedAt < $1.startedAt }
+    }
 }

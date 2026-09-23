@@ -183,6 +183,32 @@ final class MeasurementProgressTests: XCTestCase {
         XCTAssertEqual(MeasurementProgress.current(in: seasons)?.name, "2026 가을")
         XCTAssertNil(MeasurementProgress.current(in: []))
     }
+
+    /// 과거 날짜로 적은 기록은 그때의 시즌으로 들어간다.
+    func test_seasonContainingDate() {
+        let (_, seasons) = fixture()
+        func season(_ y: Int, _ m: Int, _ d: Int) -> String? {
+            MeasurementProgress.season(containing: date(y, m, d), in: seasons, calendar: calendar)?.name
+        }
+        XCTAssertEqual(season(2026, 7, 20), "2026 여름")
+        XCTAssertEqual(season(2026, 9, 23), "2026 가을")
+        XCTAssertEqual(season(2026, 6, 1), "2026 여름", "시작일 당일은 그 시즌이다")
+        XCTAssertNil(season(2026, 2, 1), "첫 시즌보다 앞선 날은 속한 시즌이 없다")
+    }
+
+    /// 시즌을 오후에 만들어도 그날 오전에 잰 기록은 그 시즌이다.
+    func test_seasonContainingDateComparesWholeDays() {
+        let afternoon = calendar.date(byAdding: .hour, value: 15, to: date(2026, 9, 1))!
+        let morning = calendar.date(byAdding: .hour, value: 9, to: date(2026, 9, 1))!
+        let seasons = [
+            MeasurementSeason(name: "2026 여름", startedAt: date(2026, 6, 1)),
+            MeasurementSeason(name: "2026 가을", startedAt: afternoon)
+        ]
+        XCTAssertEqual(
+            MeasurementProgress.season(containing: morning, in: seasons, calendar: calendar)?.name,
+            "2026 가을"
+        )
+    }
 }
 
 @MainActor

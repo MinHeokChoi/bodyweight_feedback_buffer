@@ -77,12 +77,14 @@ struct WorkoutStatisticsView: View {
             guard let duration = summary.byKind[kind], duration > 0 else { return nil }
             return (kind, duration)
         }
-        let total = summary.trainingDuration + summary.restDuration
+        // 비율은 운동 시간끼리만 나눈다. 휴식은 기록의 목적이 아니고, 직접 입력한 기록은
+        // 휴식이 0이라 섞으면 기록 방식에 따라 비율이 흔들린다. 휴식은 위 타일에 따로 있다.
+        let total = summary.trainingDuration
 
         return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             DSSectionLabel(text: "구간별 시간 배분")
 
-            SegmentRatioBar(byKind: summary.byKind, rest: summary.restDuration)
+            SegmentRatioBar(byKind: summary.byKind)
 
             VStack(spacing: DS.Spacing.xs) {
                 ForEach(entries, id: \.0) { kind, duration in
@@ -90,14 +92,6 @@ struct WorkoutStatisticsView: View {
                         color: kind.tint,
                         name: kind.displayName,
                         duration: duration,
-                        total: total
-                    )
-                }
-                if summary.restDuration > 0 {
-                    legendRow(
-                        color: DS.Segment.rest,
-                        name: "휴식",
-                        duration: summary.restDuration,
                         total: total
                     )
                 }
@@ -116,9 +110,9 @@ struct WorkoutStatisticsView: View {
             Text(WorkoutTimeFormat.compact(duration))
                 .font(DS.Typo.number)
                 .foregroundStyle(.secondary)
-            Text(total > 0 ? "\(Int((duration / total * 100).rounded()))%" : "0%")
+            Text(WorkoutTimeFormat.percent(duration, of: total))
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)

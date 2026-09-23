@@ -31,6 +31,5 @@ final class AppContainerTests: StoreTestCase {
         XCTAssertNotNil(container.appSessionStore.persistenceIssue)
         XCTAssertFalse(container.feedbackStore.skills.isEmpty)
         XCTAssertTrue(container.feedbackStore.feedbacks.isEmpty)
-        XCTAssertFalse(container.feedbackStore.quickPhrases.isEmpty)
     }
 }

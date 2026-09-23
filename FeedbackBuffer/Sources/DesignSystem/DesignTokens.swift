@@ -71,6 +71,17 @@ enum DS {
         static var tile: Color { Color(.tertiarySystemFill) }
     }
 
+    // MARK: - Tint
+
+    enum Tint {
+        /// accent 코랄을 글자로 쓸 때.
+        ///
+        /// 채움색 #FF6B4A는 흰 바탕이나 회색 바탕 위 글자로 약 2.2~2.8:1밖에 안 된다.
+        /// 채움색은 그대로 두고(D19) 라이트 모드 글자만 명도를 낮춘다. 흰 바탕에서 약 4.8:1이다.
+        /// 다크 모드는 원래 색으로도 충분히 읽힌다.
+        static let accentText = Color(light: 0xC8452A, dark: 0xFF8A66)
+    }
+
     // MARK: - Segment palette
 
     /// 구간 구분색. 앱 아이콘의 코랄(#FF7E44)·민트(#70DBB8)·크림(#F7F1EA)에서 파생했다.

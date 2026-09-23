@@ -96,6 +96,25 @@ final class WorkoutTimerStoreTests: XCTestCase {
         XCTAssertEqual(state?.lapElapsed ?? -1, 0, accuracy: 0.001)
     }
 
+    /// 넘어간 운동 번호를 알려준다. 넘어가지 않았으면 nil이라 화면이 진동을 삼키지 않는다.
+    func testSkipReportsTheLapItMovedTo() {
+        let store = makeStore()
+        store.startSegment(.strength, now: at(0))
+
+        XCTAssertEqual(store.skipToNextLap(now: at(252)), 2)
+        XCTAssertNil(store.skipToNextLap(now: at(252.4)), "1초 안에 다시 누르면 넘어가지 않는다")
+        XCTAssertEqual(store.skipToNextLap(now: at(400)), 3)
+    }
+
+    /// 9분 경계를 막 지나 이미 다음 운동이 시작된 직후에는 번호가 그대로다.
+    func testSkipRightAfterNaturalBoundaryDoesNotMoveLap() {
+        let store = makeStore()
+        store.startSegment(.strength, now: at(0))
+
+        XCTAssertNil(store.skipToNextLap(now: at(540.5)))
+        XCTAssertEqual(store.paceState(now: at(540.5))?.lapIndex, 2)
+    }
+
     func testSkipDoesNotShrinkSegmentOrSessionTotals() {
         let store = makeStore()
         store.startSegment(.strength, now: at(0))
@@ -110,7 +129,7 @@ final class WorkoutTimerStoreTests: XCTestCase {
         let store = makeStore()
         store.startSegment(.warmup, now: at(0))
 
-        store.skipToNextLap(now: at(300))
+        XCTAssertNil(store.skipToNextLap(now: at(300)))
 
         XCTAssertTrue(store.activeSession?.segments[0].laps.isEmpty ?? false)
     }

@@ -4,12 +4,13 @@ struct SkillDetailView: View {
     enum Section: Hashable { case active, archived }
 
     @Environment(FeedbackStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     let skill: Skill
 
     @State private var section: Section = .active
     @State private var addingFeedback = false
     @State private var editing: Feedback?
+    /// 해결·또 하기 직후 목록이 움직이는 동안 잠깐 입력을 받지 않는다. 버퍼와 같다.
+    @State private var isSettling = false
 
     /// 버퍼와 같은 순서다. 끌기와 오늘 할 것은 버퍼에서만 한다.
     private var activeFeedbacks: [Feedback] {
@@ -35,6 +36,7 @@ struct SkillDetailView: View {
 
             content
         }
+        .undoBanner()
         .navigationTitle(skill.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -49,8 +51,9 @@ struct SkillDetailView: View {
                 }
             }
         }
+        // 저장해도 이 화면에 머문다. 연달아 적을 수 있고, 새 카드는 맨 위에 보인다.
         .sheet(isPresented: $addingFeedback) {
-            AddFeedbackSheet(skill, onSaved: { dismiss() })
+            AddFeedbackSheet(context: AddFeedbackSheet.Context(skillId: skill.id))
                 .environment(store)
         }
         .sheet(item: $editing) { feedback in
@@ -83,8 +86,16 @@ struct SkillDetailView: View {
                     ForEach(activeFeedbacks) { feedback in
                         FeedbackCardView(
                             feedback: feedback,
-                            onArchive: { withAnimation { store.archive(feedback.id) } },
-                            onMarkPracticed: { withAnimation { store.markPracticed(feedback.id) } },
+                            onArchive: {
+                                withAnimation { store.archive(feedback.id) }
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                settle()
+                            },
+                            onMarkPracticed: {
+                                withAnimation { store.markPracticed(feedback.id) }
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                settle()
+                            },
                             onEdit: { editing = feedback },
                             onDelete: { withAnimation { store.delete(feedback.id) } }
                         )
@@ -93,6 +104,7 @@ struct SkillDetailView: View {
                 }
                 .padding(.vertical, 12)
             }
+            .allowsHitTesting(!isSettling)
         }
     }
 
@@ -102,7 +114,7 @@ struct SkillDetailView: View {
             ContentUnavailableView {
                 Label("보관한 피드백이 없어요", systemImage: "archivebox")
             } description: {
-                Text("\"보관\" 버튼을 누른 피드백이 여기에 모입니다.")
+                Text("\"해결\"을 누른 피드백이 여기에 모여요.")
             }
         } else {
             ScrollView {
@@ -118,6 +130,14 @@ struct SkillDetailView: View {
                 }
                 .padding(.vertical, 12)
             }
+        }
+    }
+
+    private func settle() {
+        isSettling = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            isSettling = false
         }
     }
 }

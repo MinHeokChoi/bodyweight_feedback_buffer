@@ -142,15 +142,20 @@ final class WorkoutTimerStore {
     ///
     /// 지금까지의 랩을 확정하고 랩 원점을 지금으로 옮긴다. 구간 누적과 세션
     /// 누적은 건드리지 않는다.
-    func skipToNextLap(now: Date = .now) {
+    ///
+    /// - Returns: 넘어간 운동 번호. 넘어가지 않았으면 nil이다 — 1초 안에 다시 눌렀거나,
+    ///   9분 경계를 막 지나 이미 다음 운동이 시작된 직후인 경우다.
+    @discardableResult
+    func skipToNextLap(now: Date = .now) -> Int? {
         guard var session = activeSession,
               let index = session.segments.firstIndex(where: \.isRunning),
-              session.segments[index].kind.usesPaceTimer else { return }
+              session.segments[index].kind.usesPaceTimer else { return nil }
 
         let segment = session.segments[index]
         let elapsed = WorkoutClock.elapsedSinceAnchor(of: segment, pauses: session.pauses, now: now)
-        guard elapsed >= 1 else { return }
+        guard elapsed >= 1 else { return nil }
 
+        let before = WorkoutClock.paceState(for: segment, pauses: session.pauses, now: now)?.lapIndex
         session.segments[index].laps = WorkoutClock.materializedLaps(
             for: segment,
             pauses: session.pauses,
@@ -158,6 +163,10 @@ final class WorkoutTimerStore {
         )
         session.segments[index].paceAnchoredAt = now
         commit(session)
+
+        let after = WorkoutClock.paceState(for: session.segments[index], pauses: session.pauses, now: now)?.lapIndex
+        guard let before, let after, after > before else { return nil }
+        return after
     }
 
     private func closeRunningSegment(in session: inout WorkoutSession, at date: Date) {

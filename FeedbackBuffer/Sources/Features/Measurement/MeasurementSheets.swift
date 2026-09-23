@@ -124,18 +124,37 @@ struct MeasurementItemEditorSheet: View {
     }
 }
 
-// MARK: - 측정값 남기기
+// MARK: - 측정값 남기기·고치기
 
 struct MeasurementRecordSheet: View {
     @Environment(MeasurementStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     let item: MeasurementItem
+    /// 고칠 기록. 없으면 새로 남긴다.
+    let record: MeasurementRecord?
 
-    @State private var valueText = ""
+    @State private var valueText: String
     @State private var seasonId: UUID?
-    @State private var measuredAt: Date = .now
-    @State private var note = ""
+    @State private var measuredAt: Date
+    @State private var note: String
+    /// 시즌을 직접 골랐는지. 고르기 전에는 잰 날이 속한 시즌을 따라간다.
+    @State private var seasonChosen = false
+    @State private var confirmingDelete = false
+
+    init(item: MeasurementItem, record: MeasurementRecord? = nil) {
+        self.item = item
+        self.record = record
+        _valueText = State(initialValue: record.map { Self.editableText($0.value) } ?? "")
+        _seasonId = State(initialValue: record?.seasonId)
+        _measuredAt = State(initialValue: record?.measuredAt ?? .now)
+        _note = State(initialValue: record?.note ?? "")
+    }
+
+    /// 고칠 때 칸에 넣을 값. 소수점이 없으면 정수로 보여준다.
+    private static func editableText(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value.rounded())) : String(value)
+    }
 
     private var value: Double? {
         Double(valueText.replacingOccurrences(of: ",", with: "."))
@@ -157,19 +176,35 @@ struct MeasurementRecordSheet: View {
                     }
                 }
 
-                Section("시즌") {
+                Section {
                     if store.seasons.isEmpty {
-                        // 시즌이 하나도 없으면 저장할 때 오늘 날짜로 자동으로 만든다.
+                        // 시즌이 하나도 없으면 저장할 때 잰 날로 자동으로 만든다.
                         // 기록을 남기려고 먼저 설정을 하러 가게 만들지 않는다.
                         LabeledContent("시즌") {
-                            Text(SeasonNaming.suggestedName(for: .now))
+                            Text(newSeasonName)
                         }
                     } else {
-                        Picker("시즌", selection: $seasonId) {
+                        Picker("시즌", selection: Binding(
+                            get: { seasonId },
+                            set: {
+                                seasonId = $0
+                                seasonChosen = true
+                            }
+                        )) {
                             ForEach(store.seasons) { season in
                                 Text(season.name).tag(Optional(season.id))
                             }
+                            // 첫 시즌보다 앞선 날짜는 속한 시즌이 없다. 이번 시즌에 넣지 않고 새로 만든다.
+                            if seasonId == nil || containingSeason == nil {
+                                Text("새 시즌 · \(newSeasonName)").tag(UUID?.none)
+                            }
                         }
+                    }
+                } header: {
+                    Text("시즌")
+                } footer: {
+                    if seasonId == nil {
+                        Text("이 날짜가 속한 시즌이 없어서 저장할 때 새로 만들어요.")
                     }
                 }
 
@@ -191,8 +226,16 @@ struct MeasurementRecordSheet: View {
                         Text("이 종목의 제약")
                     }
                 }
+
+                if record != nil {
+                    Section {
+                        Button("이 기록 삭제", role: .destructive) {
+                            confirmingDelete = true
+                        }
+                    }
+                }
             }
-            .navigationTitle("측정값 기록")
+            .navigationTitle(record == nil ? "측정값 기록" : "측정값 수정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -203,17 +246,47 @@ struct MeasurementRecordSheet: View {
                 }
             }
             .onAppear {
-                seasonId = seasonId ?? store.currentSeason?.id
+                seasonId = seasonId ?? containingSeason?.id
+            }
+            // 시즌은 시작일로만 정해지므로 잰 날이 곧 시즌이다(N16).
+            // 과거 날짜로 적으면 그때의 시즌으로 들어가야 한다.
+            .onChange(of: measuredAt) {
+                guard !seasonChosen else { return }
+                seasonId = containingSeason?.id
+            }
+            .confirmationDialog("이 기록을 삭제할까요?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                Button("삭제", role: .destructive) {
+                    if let record { store.deleteRecord(record.id) }
+                    dismiss()
+                }
+                Button("취소", role: .cancel) { }
             }
         }
+    }
+
+    /// 잰 날이 속한 시즌. 첫 시즌보다 앞선 날이면 없다.
+    private var containingSeason: MeasurementSeason? {
+        MeasurementProgress.season(containing: measuredAt, in: store.seasons)
+    }
+
+    /// 속한 시즌이 없을 때 저장하면서 만들 시즌의 이름
+    private var newSeasonName: String {
+        SeasonNaming.uniqueName(for: measuredAt, existing: store.seasons.map(\.name))
     }
 
     private func save() {
         guard let value else { return }
         let season = store.seasons.first { $0.id == seasonId }
-            ?? store.currentSeason
             ?? store.addSeason(startedAt: measuredAt)
-        store.addRecord(item: item, season: season, value: value, measuredAt: measuredAt, note: note)
+        if var existing = record {
+            existing.value = value
+            existing.seasonId = season.id
+            existing.measuredAt = measuredAt
+            existing.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            store.updateRecord(existing)
+        } else {
+            store.addRecord(item: item, season: season, value: value, measuredAt: measuredAt, note: note)
+        }
         dismiss()
     }
 }

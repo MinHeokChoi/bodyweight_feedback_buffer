@@ -8,7 +8,8 @@ final class FeedbackStore {
         didSet { recomputeFeedbackDerivatives() }
     }
     private(set) var skills: [Skill] = []
-    private(set) var quickPhrases: [String] = []
+    /// 방금 한 해결·또 하기. 되돌리기 띠가 쓴다. 다음 변경이 생기면 사라진다.
+    private(set) var undoableAction: UndoableAction?
 
     private(set) var unarchivedCountsBySkill: [UUID: Int] = [:]
     private(set) var feedbackCountsBySkill: [UUID: Int] = [:]
@@ -32,7 +33,7 @@ final class FeedbackStore {
         self.settingsRepository = settingsRepository
         self.persistenceScheduler = persistenceScheduler
         self.reportIssue = reportIssue
-        quickPhrases = settingsRepository.loadQuickPhrases()
+        settingsRepository.removeRetiredValues()
         bootstrap()
     }
 
@@ -151,15 +152,16 @@ final class FeedbackStore {
 
     // MARK: - Feedback intents
 
+    @discardableResult
     func addFeedback(
         skill: Skill,
         title: String,
         note: String,
         importance: Int,
         category: FeedbackCategory = .skill
-    ) {
+    ) -> Feedback? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
         let new = Feedback(
             skillId: skill.id,
             skillName: skill.name,
@@ -171,6 +173,7 @@ final class FeedbackStore {
         // 방금 적은 것은 맨 위. 점수제에서는 늘 바닥에 깔려 안 보였다.
         feedbacks.insert(new, at: 0)
         persistFeedbacks()
+        return new
     }
 
     func updateFeedback(_ updated: Feedback) {
@@ -181,12 +184,14 @@ final class FeedbackStore {
         persistFeedbacks()
     }
 
-    func archive(_ id: UUID) {
+    func archive(_ id: UUID, now: Date = .now) {
         guard let index = feedbacks.firstIndex(where: { $0.id == id }) else { return }
-        feedbacks[index].archivedAt = .now
-        feedbacks[index].updatedAt = .now
+        let previous = feedbacks[index]
+        feedbacks[index].archivedAt = now
+        feedbacks[index].updatedAt = now
         feedbacks[index].todayAddedAt = nil
         persistFeedbacks()
+        rememberForUndo(.archive, previous: previous, at: index, now: now)
     }
 
     func unarchive(_ id: UUID) {
@@ -203,6 +208,7 @@ final class FeedbackStore {
     /// 오늘 할 것에 있었다면 오늘 몫은 끝난 것이라 거기서 조용히 빠진다.
     func markPracticed(_ id: UUID, now: Date = .now) {
         guard let index = feedbacks.firstIndex(where: { $0.id == id }) else { return }
+        let previous = feedbacks[index]
         var updated = feedbacks
         updated[index].unresolvedCount += 1
         updated[index].lastReviewedAt = now
@@ -210,6 +216,63 @@ final class FeedbackStore {
         updated[index].todayAddedAt = nil
         feedbacks = FeedbackOrdering.movingToFront(id, in: updated)
         persistFeedbacks()
+        rememberForUndo(.practiced, previous: previous, at: index, now: now)
+    }
+
+    // MARK: - 되돌리기
+
+    struct UndoableAction: Identifiable, Equatable {
+        enum Kind: Equatable {
+            case archive
+            case practiced
+        }
+
+        let id = UUID()
+        let kind: Kind
+        /// 누르기 전의 피드백. 자리·오늘 할 것·횟수·마지막으로 한 날을 모두 담고 있다.
+        let previous: Feedback
+        /// 누르기 전 배열 속 자리
+        let previousIndex: Int
+        let expiresAt: Date
+    }
+
+    /// 되돌리기 띠가 떠 있는 시간
+    static let undoWindow: TimeInterval = 5
+
+    private func rememberForUndo(_ kind: UndoableAction.Kind, previous: Feedback, at index: Int, now: Date) {
+        undoableAction = UndoableAction(
+            kind: kind,
+            previous: previous,
+            previousIndex: index,
+            expiresAt: now.addingTimeInterval(Self.undoWindow)
+        )
+    }
+
+    /// 방금 한 해결·또 하기를 되돌린다. 누르기 전 그 자리에 그 모습 그대로 돌려놓는다.
+    ///
+    /// 그 사이에 다른 변경이 있었다면 이미 사라져 있으므로(`persistFeedbacks`),
+    /// 되돌리기가 다른 변경까지 되감는 일은 없다.
+    func undoLastAction() {
+        guard let action = undoableAction else { return }
+        undoableAction = nil
+        guard let current = feedbacks.firstIndex(where: { $0.id == action.previous.id }) else { return }
+        var restored = feedbacks
+        restored.remove(at: current)
+        restored.insert(action.previous, at: min(action.previousIndex, restored.count))
+        feedbacks = restored
+        persistFeedbacks()
+    }
+
+    /// 저장하지 않는 변경(필터 중 임시로 끌기)도 되돌리기를 끝낸다.
+    /// 되살린 카드가 새로 늘어놓은 순서 어디에 들어갈지 알 수 없기 때문이다.
+    func discardUndo() {
+        undoableAction = nil
+    }
+
+    /// 띠가 사라질 때. 그 사이 새 동작이 생겼다면 그것은 건드리지 않는다.
+    func expireUndo(_ id: UUID) {
+        guard undoableAction?.id == id else { return }
+        undoableAction = nil
     }
 
     // MARK: - 오늘 할 것
@@ -302,24 +365,12 @@ final class FeedbackStore {
         persistSkills()
     }
 
-    // MARK: - Quick phrases
-
-    func updateQuickPhrases(_ phrases: [String]) {
-        quickPhrases = phrases
-        do {
-            try settingsRepository.saveQuickPhrases(phrases)
-        } catch {
-            reportPersistenceIssue(
-                title: "빠른 문구를 저장하지 못했습니다",
-                error: error,
-                recovery: "잠시 후 다시 시도해 주세요."
-            )
-        }
-    }
-
     // MARK: - Persistence
 
+    /// 피드백을 바꾸는 모든 동작이 여기를 거친다. 그래서 되돌리기도 여기서 버린다 —
+    /// 되돌리기는 바로 다음 변경 전까지만 유효하다. 해결·또 하기는 저장한 뒤에 다시 남긴다.
     private func persistFeedbacks() {
+        undoableAction = nil
         let snapshot = feedbacks
         let repository = feedbackRepository
         scheduleSave(

@@ -166,6 +166,48 @@ enum WorkoutClock {
         )
     }
 
+    // MARK: - 경계 신호
+
+    enum PaceSignal: Equatable {
+        /// 3분 세트 경계 — 짧게 1회
+        case set
+        /// 9분 운동 경계 — 짧게 3회
+        case lap
+    }
+
+    /// 경계를 넘은 뒤 이 시간 안에 알게 됐을 때만 신호를 낸다.
+    ///
+    /// 화면은 보일 때만 갱신된다. 다른 탭이나 백그라운드에 있다가 돌아오면 이미 지난
+    /// 경계를 뒤늦게 알게 되는데, 그때 울리면 "지금 바뀌었다"는 잘못된 신호가 된다.
+    static let boundarySignalWindow: TimeInterval = 3
+
+    /// 직전에 그린 상태와 지금 상태 사이에서 낼 경계 신호.
+    ///
+    /// 이전 값을 뷰가 따로 들고 있지 않고 두 상태만 비교한다. 따로 들고 있으면
+    /// 처음에는 비어 있어 첫 경계를 놓치고, 앞 블록의 값이 남아 다음 블록 경계를 놓쳤다.
+    ///
+    /// - Parameter skippedToLap: "지금 바로 다음 운동으로"로 넘어간 운동 번호.
+    ///   직접 누른 것이라 누름 확인 진동만 내고 운동 경계 신호는 겹쳐 내지 않는다.
+    static func boundarySignal(
+        from old: PaceState?,
+        to new: PaceState?,
+        skippedToLap: Int? = nil
+    ) -> PaceSignal? {
+        guard let old, let new else { return nil }
+        let setIsFresh = new.setElapsed < boundarySignalWindow
+        if new.lapIndex > old.lapIndex {
+            if new.lapIndex == skippedToLap { return nil }
+            // 랩이 넘어가면 세트 번호는 3에서 1로 줄어든다. 운동 경계 신호만 낸다.
+            if new.lapElapsed < boundarySignalWindow { return .lap }
+            // 운동 경계는 오래전에 지났어도 방금 넘은 세트 경계는 알린다.
+            return new.setIndex > 1 && setIsFresh ? .set : nil
+        }
+        if new.lapIndex == old.lapIndex, new.setIndex > old.setIndex {
+            return setIsFresh ? .set : nil
+        }
+        return nil
+    }
+
     /// 현재 랩 원점부터 지금까지의 순수 경과 시간.
     static func elapsedSinceAnchor(
         of segment: TrainingSegment,

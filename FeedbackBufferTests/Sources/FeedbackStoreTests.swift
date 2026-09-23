@@ -10,14 +10,13 @@ final class FeedbackStoreTests: StoreTestCase {
         XCTAssertTrue(store.feedbacks.isEmpty)
     }
 
-    func test_quickPhrasesPersistAcrossReload() {
-        let fileStore = InMemoryFileStore()
-        let store = makeFeedbackStore(fileStore: fileStore)
-        let phrases = ["손목 눌림", "복압 풀림"]
+    /// 빠른 문구는 없앴다. 기기에 남은 저장 값은 처음 켤 때 지운다.
+    func test_bootstrapRemovesRetiredQuickPhrases() {
+        defaults.set(Data("[\"견갑이 풀림\"]".utf8), forKey: "quickPhrases_v1")
 
-        store.updateQuickPhrases(phrases)
+        _ = makeFeedbackStore()
 
-        XCTAssertEqual(makeFeedbackStore(fileStore: fileStore).quickPhrases, phrases)
+        XCTAssertNil(defaults.object(forKey: "quickPhrases_v1"))
     }
 
     func test_bootstrapNormalizesDefaultSkillAliasesWithoutDeletingCustomSkills() throws {

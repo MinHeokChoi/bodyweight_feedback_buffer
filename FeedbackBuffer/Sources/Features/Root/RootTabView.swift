@@ -55,6 +55,10 @@ struct RootTabView: View {
                 }
                 .tag(Tab.library)
         }
+        // 구간이 도는 동안은 어느 탭에 있든 화면을 켜 둔다. 휴식과 일시정지는 제외한다.
+        .onChange(of: keepsScreenAwake, initial: true) { _, active in
+            ScreenAwake.set(.workoutSegment, active: active)
+        }
         .alert(
             store.persistenceIssue?.title ?? "데이터 문제",
             isPresented: persistenceIssueBinding
@@ -67,6 +71,10 @@ struct RootTabView: View {
                 Text(issue.message)
             }
         }
+    }
+
+    private var keepsScreenAwake: Bool {
+        workoutStore.runningSegment != nil && !workoutStore.isPaused
     }
 
     private var persistenceIssueBinding: Binding<Bool> {

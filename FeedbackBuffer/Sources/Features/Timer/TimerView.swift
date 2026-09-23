@@ -7,8 +7,8 @@ struct TimerView: View {
     @State private var showingFinishConfirm = false
     @State private var showingFeedbackSheet = false
     @State private var showingRecoveryDialog = false
-    @State private var lastSetIndex: Int?
-    @State private var lastLapIndex: Int?
+    /// "지금 바로 다음 운동으로"로 넘긴 랩. 직접 누른 것이라 경계 신호를 겹쳐 내지 않는다.
+    @State private var skippedToLapIndex: Int?
     @State private var haptics = WorkoutHaptics()
 
     var body: some View {
@@ -54,7 +54,7 @@ struct TimerView: View {
             }
         }
         .sheet(isPresented: $showingFeedbackSheet) {
-            AddFeedbackSheet(nil)
+            AddFeedbackSheet(context: feedbackContext)
         }
         // 종료 확인은 TimelineView 바깥에 둔다. 안에 두면 1초마다 다시 그려지면서
         // 다이얼로그가 재구성돼 버튼이 사라진다.
@@ -81,6 +81,7 @@ struct TimerView: View {
         .onChange(of: store.runningSegment?.id) { _, _ in
             // 구간이 바뀌면 곧 경계 신호가 올 수 있으니 미리 깨워 둔다.
             haptics.prepare()
+            skippedToLapIndex = nil
         }
         .confirmationDialog(
             "아직 진행 중인 운동이 있어요",
@@ -152,7 +153,8 @@ struct TimerView: View {
             VStack(spacing: DS.Spacing.md) {
                 if pace != nil {
                     Button {
-                        store.skipToNextLap()
+                        // 넘어가지 않았으면 표시를 남기지 않는다. 남으면 나중의 진짜 경계를 삼킨다.
+                        skippedToLapIndex = store.skipToNextLap()
                         haptics.action()
                     } label: {
                         Text("지금 바로 다음 운동으로")
@@ -192,8 +194,7 @@ struct TimerView: View {
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.bottom, DS.Spacing.xl)
         }
-        .onChange(of: pace?.setIndex) { _, newValue in fireSetHaptic(newValue) }
-        .onChange(of: pace?.lapIndex) { _, newValue in fireLapHaptic(newValue) }
+        .onChange(of: pace) { old, new in fireBoundaryHaptic(from: old, to: new) }
     }
 
     /// 3분 세트 3칸. 지금 몇 세트째인지와 그 안의 진행을 함께 보여준다.
@@ -382,15 +383,14 @@ struct TimerView: View {
             in: .last7Days,
             now: now
         )
+        // 계산은 달력 주가 아니라 오늘부터 거꾸로 7일이다. 라벨도 그렇게 부른다.
         return VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-            Text("이번 주")
+            Text("최근 7일")
                 .font(DS.Typo.sectionLabel)
                 .foregroundStyle(.secondary)
             Text(WorkoutTimeFormat.compact(stats.trainingDuration))
                 .font(DS.Typo.metricValue)
-            Text(stats.dayCount > 0
-                 ? "\(stats.dayCount)일 운동 · 세션 \(stats.sessionCount)회"
-                 : "아직 기록이 없어요")
+            Text(weeklyCaption(stats))
                 .font(DS.Typo.sectionLabel)
                 .foregroundStyle(.secondary)
         }
@@ -399,20 +399,41 @@ struct TimerView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: - 햅틱
-
-    /// 세기가 아니라 횟수로 구분한다. 3분 세트는 짧게 1회, 9분 운동은 짧게 2회.
-    private func fireSetHaptic(_ newValue: Int?) {
-        defer { lastSetIndex = newValue }
-        // 랩이 넘어갈 때 세트 번호는 3에서 1로 줄어든다. 그때는 운동 경계 신호만
-        // 울려야 하므로 번호가 늘어난 경우에만 세트 신호를 낸다.
-        guard let newValue, let previous = lastSetIndex, newValue > previous else { return }
-        haptics.setBoundary()
+    /// 기록이 있는데 없다고 말하지 않는다. 최근 7일만 비었으면 마지막으로 한 날을 알려준다.
+    private func weeklyCaption(_ stats: WorkoutStatistics.Summary) -> String {
+        if stats.dayCount > 0 {
+            return "\(stats.dayCount)일 운동 · 세션 \(stats.sessionCount)회"
+        }
+        guard let last = store.sessions.map(\.startedAt).max() else {
+            return "아직 기록이 없어요"
+        }
+        return "마지막 운동 " + last.formatted(.dateTime.month().day())
     }
 
-    private func fireLapHaptic(_ newValue: Int?) {
-        defer { lastLapIndex = newValue }
-        guard let newValue, let previous = lastLapIndex, newValue > previous else { return }
-        haptics.lapBoundary()
+    // MARK: - 햅틱
+
+    /// 세기가 아니라 횟수로 구분한다. 3분 세트는 짧게 1회, 9분 운동은 짧게 3회.
+    ///
+    /// 이전 값은 SwiftUI가 넘겨주는 것을 쓴다. 뷰가 따로 들고 있으면 처음 경계와
+    /// 다음 블록의 경계를 놓친다.
+    private func fireBoundaryHaptic(from old: WorkoutClock.PaceState?, to new: WorkoutClock.PaceState?) {
+        let skipped = skippedToLapIndex
+        // 넘긴 표시는 한 번만 쓴다. 운동 번호가 바뀌면 맞든 안 맞든 버린다.
+        if old?.lapIndex != new?.lapIndex {
+            skippedToLapIndex = nil
+        }
+        guard let signal = WorkoutClock.boundarySignal(from: old, to: new, skippedToLap: skipped) else { return }
+        switch signal {
+        case .set: haptics.setBoundary()
+        case .lap: haptics.lapBoundary()
+        }
+    }
+
+    // MARK: - 피드백
+
+    /// 지금 하고 있거나 방금 끝낸 구간으로 범주 기본값을 고른다. 저장하는 데이터에는 붙이지 않는다.
+    private var feedbackContext: AddFeedbackSheet.Context {
+        let kind = (store.runningSegment ?? store.lastFinishedSegment)?.kind
+        return AddFeedbackSheet.Context(category: kind.flatMap(FeedbackDraftDefaults.category(for:)))
     }
 }

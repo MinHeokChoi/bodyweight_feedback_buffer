@@ -249,6 +249,13 @@ final class WorkoutTimeFormatTests: XCTestCase {
         XCTAssertEqual(WorkoutTimeFormat.compact(3600), "1시간")
         XCTAssertEqual(WorkoutTimeFormat.compact(600), "10분")
         XCTAssertEqual(WorkoutTimeFormat.compact(45), "45초")
-        XCTAssertEqual(WorkoutTimeFormat.compact(0), "0초")
+        XCTAssertEqual(WorkoutTimeFormat.compact(0), "0분")
+    }
+
+    func testPercentNeverRoundsRealWorkToZero() {
+        XCTAssertEqual(WorkoutTimeFormat.percent(15, of: 3555), "<1%")
+        XCTAssertEqual(WorkoutTimeFormat.percent(1620, of: 3540), "46%")
+        XCTAssertEqual(WorkoutTimeFormat.percent(0, of: 3540), "0%")
+        XCTAssertEqual(WorkoutTimeFormat.percent(10, of: 0), "0%")
     }
 }
