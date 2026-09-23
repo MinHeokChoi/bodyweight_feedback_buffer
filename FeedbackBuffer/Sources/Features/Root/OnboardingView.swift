@@ -31,8 +31,8 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 onboardingPoint("target", title: "기술별로 모으기", body: "물구나무, 플란체, 풀업처럼 집중할 기술을 나눠 기록합니다.")
-                onboardingPoint("bolt.heart", title: "우선순위 보기", body: "오래 방치되거나 반복되는 피드백을 먼저 보여줍니다.")
-                onboardingPoint("checkmark.seal", title: "훈련 전 확인", body: "웜업을 마치고 오늘의 1순위를 바로 떠올립니다.")
+                onboardingPoint("sun.max", title: "오늘 할 것 고르기", body: "카드를 왼쪽으로 밀어 오늘 할 것에 담고, 길게 눌러 끌면 순서를 바꿀 수 있어요.")
+                onboardingPoint("checkmark.seal", title: "훈련 전 확인", body: "웜업을 마치고 오늘 할 것을 바로 떠올립니다.")
             }
             .padding(.horizontal, 24)
 

@@ -76,7 +76,8 @@ enum DS {
     /// 구간 구분색. 앱 아이콘의 코랄(#FF7E44)·민트(#70DBB8)·크림(#F7F1EA)에서 파생했다.
     ///
     /// 새 색을 발명하지 않은 이유는 아이콘과 앱이 같은 색을 쓰게 하기 위해서다.
-    /// 피드백 우선순위 tier가 이미 red/orange/yellow를 쓰고 있어 그 세 색은 피했다.
+    /// 처음에는 피드백 우선순위 등급이 red/orange/yellow를 써서 그 세 색을 피했다.
+    /// 등급은 없어졌지만 경고·묵은 표시가 여전히 주황을 쓰므로 그대로 둔다.
     enum Segment {
         /// 스트레칭 — 크림에서 파생한 모래색
         static let stretching = Color(light: 0xBFA07A, dark: 0xD9BD9A)

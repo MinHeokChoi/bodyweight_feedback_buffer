@@ -46,6 +46,11 @@ struct Feedback: Identifiable, Codable, Hashable {
     var updatedAt: Date
     var lastReviewedAt: Date?
     var archivedAt: Date?
+    /// 오늘 할 것에 담은 시각. 날짜가 오늘이 아니면 담겨 있지 않은 것이다.
+    ///
+    /// 날짜로 두는 이유는 날이 바뀌면 저절로 비워지게 하려는 것이다.
+    /// 어제 못 한 것을 치우는 일을 만들지 않는다.
+    var todayAddedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -59,7 +64,8 @@ struct Feedback: Identifiable, Codable, Hashable {
         createdAt: Date = .now,
         updatedAt: Date = .now,
         lastReviewedAt: Date? = nil,
-        archivedAt: Date? = nil
+        archivedAt: Date? = nil,
+        todayAddedAt: Date? = nil
     ) {
         self.id = id
         self.skillId = skillId
@@ -73,9 +79,15 @@ struct Feedback: Identifiable, Codable, Hashable {
         self.updatedAt = updatedAt
         self.lastReviewedAt = lastReviewedAt
         self.archivedAt = archivedAt
+        self.todayAddedAt = todayAddedAt
     }
 
     var referenceDate: Date { lastReviewedAt ?? createdAt }
+
+    func isInToday(now: Date = .now, calendar: Calendar = .current) -> Bool {
+        guard archivedAt == nil, let todayAddedAt else { return false }
+        return calendar.isDate(todayAddedAt, inSameDayAs: now)
+    }
 
     func daysSince(_ date: Date, now: Date = .now) -> Int {
         let interval = now.timeIntervalSince(date)
@@ -84,6 +96,14 @@ struct Feedback: Identifiable, Codable, Hashable {
 
     var daysSinceCreated: Int { daysSince(createdAt) }
     var daysSinceLastReviewed: Int { daysSince(referenceDate) }
+
+    /// 이만큼 손대지 않으면 카드에 경과일을 드러낸다.
+    ///
+    /// 순서는 사용자가 정하므로 오래 방치된 것이 위로 올라오지 않는다.
+    /// 대신 순서는 건드리지 않고 사실만 알려준다.
+    static let staleThresholdDays = 30
+
+    var isStale: Bool { daysSinceLastReviewed >= Self.staleThresholdDays }
 
     /// 임계값(3)은 이 한 곳에만 정의한다.
     var phase: FeedbackPhase {
@@ -99,6 +119,7 @@ struct Feedback: Identifiable, Codable, Hashable {
         case id, skillId, skillName, title, note
         case importance, unresolvedCount, category
         case createdAt, updatedAt, lastReviewedAt, archivedAt
+        case todayAddedAt
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -118,6 +139,7 @@ struct Feedback: Identifiable, Codable, Hashable {
         self.createdAt = try c.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try c.decode(Date.self, forKey: .updatedAt)
         self.lastReviewedAt = try c.decodeIfPresent(Date.self, forKey: .lastReviewedAt)
+        self.todayAddedAt = try c.decodeIfPresent(Date.self, forKey: .todayAddedAt)
 
         if let archived = try c.decodeIfPresent(Date.self, forKey: .archivedAt) {
             self.archivedAt = archived
@@ -147,5 +169,6 @@ struct Feedback: Identifiable, Codable, Hashable {
         try c.encode(updatedAt, forKey: .updatedAt)
         try c.encodeIfPresent(lastReviewedAt, forKey: .lastReviewedAt)
         try c.encodeIfPresent(archivedAt, forKey: .archivedAt)
+        try c.encodeIfPresent(todayAddedAt, forKey: .todayAddedAt)
     }
 }

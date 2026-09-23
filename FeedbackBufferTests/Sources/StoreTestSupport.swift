@@ -112,6 +112,7 @@ class StoreTestCase: XCTestCase {
     ) -> Feedback {
         let skill = store.skills.first!
         store.addFeedback(skill: skill, title: title, note: "", importance: importance)
-        return store.feedbacks.last!
+        // 새로 적은 것은 맨 앞에 들어간다.
+        return store.feedbacks.first!
     }
 }

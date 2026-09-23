@@ -10,7 +10,6 @@ final class FeedbackStore {
     private(set) var skills: [Skill] = []
     private(set) var quickPhrases: [String] = []
 
-    private(set) var unarchivedFeedbacksScored: [(Feedback, Double)] = []
     private(set) var unarchivedCountsBySkill: [UUID: Int] = [:]
     private(set) var feedbackCountsBySkill: [UUID: Int] = [:]
     private(set) var lastActivityBySkill: [UUID: Date] = [:]
@@ -20,7 +19,8 @@ final class FeedbackStore {
     private let persistenceScheduler: PersistenceScheduler
     private let reportIssue: (PersistenceIssue) -> Void
 
-    private static let feedbackSchemaVersion = 1
+    /// 2: 점수 정렬을 없애고 배열 순서를 화면 순서로 쓰기 시작했다.
+    private static let feedbackSchemaVersion = 2
 
     init(
         feedbackRepository: FeedbackRepository = FeedbackRepository(),
@@ -51,10 +51,15 @@ final class FeedbackStore {
             }
 
             let validSkillIds = Set(loadedSkills.map(\.id))
-            let prunedFeedbacks = loadedFeedbacks.filter { validSkillIds.contains($0.skillId) }
+            var prunedFeedbacks = loadedFeedbacks.filter { validSkillIds.contains($0.skillId) }
             let didPruneOrphans = prunedFeedbacks.count != loadedFeedbacks.count
 
             let priorSchemaVersion = settingsRepository.loadFeedbackSchemaVersion()
+            // 점수제 시절 배열은 추가된 순서라 오래된 것이 앞이다. 배열 순서를 화면
+            // 순서로 쓰기 시작하면서 한 번만 마지막으로 손댄 순으로 세운다.
+            if priorSchemaVersion < 2 {
+                prunedFeedbacks = FeedbackOrdering.migratedOrder(prunedFeedbacks)
+            }
             let needsMigrationFlush = priorSchemaVersion < Self.feedbackSchemaVersion && !prunedFeedbacks.isEmpty
 
             skills = loadedSkills
@@ -85,14 +90,28 @@ final class FeedbackStore {
 
     // MARK: - Derived
 
+    /// 해결하지 않은 피드백. 저장된 순서 그대로다 — 순서는 사용자의 행동이 정한다.
     var unarchivedFeedbacks: [Feedback] {
-        unarchivedFeedbacksScored.map(\.0)
+        feedbacks.filter { $0.archivedAt == nil }
     }
 
-    var topFeedback: Feedback? { unarchivedFeedbacksScored.first?.0 }
+    func unarchivedFeedbacks(forSkillId skillId: UUID) -> [Feedback] {
+        unarchivedFeedbacks.filter { $0.skillId == skillId }
+    }
 
-    func unarchivedFeedbacksScored(forSkillId skillId: UUID) -> [(Feedback, Double)] {
-        unarchivedFeedbacksScored.filter { $0.0.skillId == skillId }
+    /// 오늘 할 것. 날이 바뀌면 저절로 비워진다.
+    func todayFeedbacks(now: Date = .now) -> [Feedback] {
+        feedbacks.filter { $0.isInToday(now: now) }
+    }
+
+    /// 오늘 할 것에 담지 않은 나머지. 버퍼 아래쪽 목록이다.
+    func backlogFeedbacks(now: Date = .now) -> [Feedback] {
+        feedbacks.filter { $0.archivedAt == nil && !$0.isInToday(now: now) }
+    }
+
+    /// 해결하지 않은 피드백이 하나라도 있는 기술. 기술별 필터 칩에 쓴다.
+    var skillsWithActiveFeedback: [Skill] {
+        skills.filter { (unarchivedCountsBySkill[$0.id] ?? 0) > 0 }
     }
 
     func unarchivedCount(forSkillId skillId: UUID) -> Int {
@@ -104,7 +123,6 @@ final class FeedbackStore {
     }
 
     private func recomputeFeedbackDerivatives() {
-        unarchivedFeedbacksScored = FeedbackScoring.sortedUnarchivedWithScores(feedbacks)
         var unarchived: [UUID: Int] = [:]
         var all: [UUID: Int] = [:]
         var last: [UUID: Date] = [:]
@@ -150,7 +168,8 @@ final class FeedbackStore {
             importance: importance,
             category: category
         )
-        feedbacks.append(new)
+        // 방금 적은 것은 맨 위. 점수제에서는 늘 바닥에 깔려 안 보였다.
+        feedbacks.insert(new, at: 0)
         persistFeedbacks()
     }
 
@@ -166,6 +185,7 @@ final class FeedbackStore {
         guard let index = feedbacks.firstIndex(where: { $0.id == id }) else { return }
         feedbacks[index].archivedAt = .now
         feedbacks[index].updatedAt = .now
+        feedbacks[index].todayAddedAt = nil
         persistFeedbacks()
     }
 
@@ -174,14 +194,54 @@ final class FeedbackStore {
         guard feedbacks[index].archivedAt != nil else { return }
         feedbacks[index].archivedAt = nil
         feedbacks[index].updatedAt = .now
+        // 다시 꺼낸 것은 지금 손댄 것이다. 맨 위로 둔다.
+        feedbacks = FeedbackOrdering.movingToFront(id, in: feedbacks)
         persistFeedbacks()
     }
 
-    func markPracticed(_ id: UUID) {
+    /// "또 하기". 연습 횟수를 올리고 맨 위로 보낸다.
+    /// 오늘 할 것에 있었다면 오늘 몫은 끝난 것이라 거기서 조용히 빠진다.
+    func markPracticed(_ id: UUID, now: Date = .now) {
         guard let index = feedbacks.firstIndex(where: { $0.id == id }) else { return }
-        feedbacks[index].unresolvedCount += 1
-        feedbacks[index].lastReviewedAt = .now
-        feedbacks[index].updatedAt = .now
+        var updated = feedbacks
+        updated[index].unresolvedCount += 1
+        updated[index].lastReviewedAt = now
+        updated[index].updatedAt = now
+        updated[index].todayAddedAt = nil
+        feedbacks = FeedbackOrdering.movingToFront(id, in: updated)
+        persistFeedbacks()
+    }
+
+    // MARK: - 오늘 할 것
+
+    func addToToday(_ id: UUID, now: Date = .now) {
+        guard let index = feedbacks.firstIndex(where: { $0.id == id }),
+              feedbacks[index].archivedAt == nil,
+              !feedbacks[index].isInToday(now: now) else { return }
+        feedbacks[index].todayAddedAt = now
+        persistFeedbacks()
+    }
+
+    func removeFromToday(_ id: UUID) {
+        guard let index = feedbacks.firstIndex(where: { $0.id == id }),
+              feedbacks[index].todayAddedAt != nil else { return }
+        feedbacks[index].todayAddedAt = nil
+        persistFeedbacks()
+    }
+
+    // MARK: - 순서
+
+    /// 화면에 보이는 목록(`visibleIds`) 안에서 끌어 옮긴 것을 저장한다.
+    /// 보이지 않는 항목(보관한 것, 다른 구역)의 자리는 건드리지 않는다.
+    func moveFeedbacks(visibleIds: [UUID], fromOffsets source: IndexSet, toOffset destination: Int) {
+        let reordered = FeedbackOrdering.reordering(
+            feedbacks,
+            visibleIds: visibleIds,
+            fromOffsets: source,
+            toOffset: destination
+        )
+        guard reordered.map(\.id) != feedbacks.map(\.id) else { return }
+        feedbacks = reordered
         persistFeedbacks()
     }
 

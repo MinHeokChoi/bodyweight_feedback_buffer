@@ -1,23 +1,40 @@
 import SwiftUI
 
-private enum BufferCategoryFilter: String {
-    case all, physical, skill
+/// 버퍼를 걸러 보는 조건. 범주(체력/기술)나 기술 하나.
+enum BufferFilter: Hashable {
+    case all
+    case category(FeedbackCategory)
+    case skill(UUID)
 
-    var displayName: String {
-        switch self {
-        case .all: "전체"
-        case .physical: FeedbackCategory.physical.displayName
-        case .skill: FeedbackCategory.skill.displayName
+    /// 옛 값("all", "physical", "skill")을 그대로 읽는다. 기술 필터만 새 형식이다.
+    init(storageValue: String) {
+        if storageValue.hasPrefix(Self.skillPrefix),
+           let id = UUID(uuidString: String(storageValue.dropFirst(Self.skillPrefix.count))) {
+            self = .skill(id)
+        } else if let category = FeedbackCategory(rawValue: storageValue) {
+            self = .category(category)
+        } else {
+            self = .all
         }
     }
 
-    var systemImage: String {
+    var storageValue: String {
         switch self {
-        case .all: "list.bullet"
-        case .physical: FeedbackCategory.physical.systemImage
-        case .skill: FeedbackCategory.skill.systemImage
+        case .all: "all"
+        case let .category(category): category.rawValue
+        case let .skill(id): Self.skillPrefix + id.uuidString
         }
     }
+
+    func includes(_ feedback: Feedback) -> Bool {
+        switch self {
+        case .all: true
+        case let .category(category): feedback.category == category
+        case let .skill(id): feedback.skillId == id
+        }
+    }
+
+    private static let skillPrefix = "skillId:"
 }
 
 struct BufferView: View {
@@ -25,7 +42,14 @@ struct BufferView: View {
     @Binding var tabSelection: RootTabView.Tab
     @State private var addingFeedback = false
     @State private var editing: Feedback?
-    @AppStorage("buffer.categoryFilter") private var categoryFilter: String = BufferCategoryFilter.all.rawValue
+    @AppStorage("buffer.categoryFilter") private var filterValue: String = BufferFilter.all.storageValue
+    /// 필터 중에 끌어서 만든 임시 순서. 저장하지 않는다.
+    ///
+    /// 운동하면서 "이번엔 이 순서로 보자"고 잠깐 늘어놓는 용도다. 다른 탭에 다녀와도
+    /// 유지되고, 필터를 풀거나 바꾸면 버려져 저장된 순서로 돌아온다.
+    @State private var temporaryOrder: [UUID]?
+
+    private enum ListSection { case today, backlog }
 
     var body: some View {
         NavigationStack {
@@ -51,80 +75,218 @@ struct BufferView: View {
             EditFeedbackSheet(feedback: feedback)
                 .environment(store)
         }
-    }
-
-    private var selectedFilter: BufferCategoryFilter {
-        BufferCategoryFilter(rawValue: categoryFilter) ?? .all
-    }
-
-    private func isVisible(_ category: FeedbackCategory) -> Bool {
-        switch selectedFilter {
-        case .all: true
-        case .physical: category == .physical
-        case .skill: category == .skill
+        .onChange(of: filterValue) { _, _ in
+            temporaryOrder = nil
         }
     }
 
+    // MARK: - 필터
+
+    /// 저장된 필터. 지워진 기술을 가리키고 있으면 전체로 본다.
+    private var filter: BufferFilter {
+        let stored = BufferFilter(storageValue: filterValue)
+        if case let .skill(id) = stored, !store.skills.contains(where: { $0.id == id }) {
+            return .all
+        }
+        return stored
+    }
+
+    private var isFiltering: Bool { filter != .all }
+
+    /// 기술 칩. 피드백이 있는 기술만 보여준다. 다만 지금 고른 기술은 비어도 남겨서
+    /// 풀 수 있게 한다.
+    private var skillChips: [Skill] {
+        var skills = store.skillsWithActiveFeedback
+        if case let .skill(id) = filter,
+           !skills.contains(where: { $0.id == id }),
+           let selected = store.skills.first(where: { $0.id == id }) {
+            skills.append(selected)
+        }
+        return skills
+    }
+
+    private func displayed(_ items: [Feedback]) -> [Feedback] {
+        let filtered = items.filter(filter.includes)
+        guard let temporaryOrder else { return filtered }
+        return FeedbackOrdering.applyingTemporaryOrder(filtered, order: temporaryOrder)
+    }
+
+    // MARK: - 본문
+
     @ViewBuilder
     private var content: some View {
-        let scored = store.unarchivedFeedbacksScored
-        let filtered = scored.filter { isVisible($0.0.category) }
+        let today = displayed(store.todayFeedbacks())
+        let backlog = displayed(store.backlogFeedbacks())
+
         VStack(spacing: 0) {
-            categoryFilterBar
-            if filtered.isEmpty {
+            filterBar
+            if store.unarchivedFeedbacks.isEmpty {
                 emptyState
+            } else if today.isEmpty && backlog.isEmpty {
+                filteredEmptyState
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filtered, id: \.0.id) { feedback, score in
-                            FeedbackCardView(
-                                feedback: feedback,
-                                score: score,
-                                onArchive: {
-                                    withAnimation { store.archive(feedback.id) }
-                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                },
-                                onMarkPracticed: {
-                                    withAnimation { store.markPracticed(feedback.id) }
-                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                },
-                                onEdit: { editing = feedback },
-                                onDelete: {
-                                    withAnimation { store.delete(feedback.id) }
-                                }
-                            )
-                            .padding(.horizontal, 16)
+                List {
+                    if temporaryOrder != nil {
+                        temporaryOrderNotice
+                    }
+
+                    // 오늘 목록이 비어 있으면 구역 자체를 숨긴다. 안 쓰면 없는 기능이 된다.
+                    if !today.isEmpty {
+                        Section {
+                            rows(today, in: .today, today: today, backlog: backlog)
+                        } header: {
+                            DSSectionLabel(text: "오늘 할 것")
                         }
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+
+                    Section {
+                        rows(backlog, in: .backlog, today: today, backlog: backlog)
+                    } header: {
+                        if !today.isEmpty && !backlog.isEmpty {
+                            DSSectionLabel(text: "전체")
+                        }
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
     }
 
-    private var categoryFilterBar: some View {
-        HStack(spacing: 8) {
-            categoryButton(.all)
-            categoryButton(.physical)
-            categoryButton(.skill)
-            Spacer()
+    private func rows(
+        _ items: [Feedback],
+        in section: ListSection,
+        today: [Feedback],
+        backlog: [Feedback]
+    ) -> some View {
+        ForEach(items) { feedback in
+            card(for: feedback)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                // 카드에 버튼이 이미 넷이라 오늘 할 것은 스와이프로 담고 뺀다.
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    switch section {
+                    case .backlog:
+                        Button {
+                            withAnimation { store.addToToday(feedback.id) }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            Label("오늘", systemImage: "sun.max")
+                        }
+                        .tint(.accentColor)
+                    case .today:
+                        Button {
+                            withAnimation { store.removeFromToday(feedback.id) }
+                        } label: {
+                            Label("빼기", systemImage: "minus.circle")
+                        }
+                        .tint(.gray)
+                    }
+                }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .onMove { source, destination in
+            move(items, in: section, today: today, backlog: backlog, from: source, to: destination)
+        }
     }
 
-    private func categoryButton(_ filter: BufferCategoryFilter) -> some View {
-        let isSelected = selectedFilter == filter
+    private func card(for feedback: Feedback) -> some View {
+        FeedbackCardView(
+            feedback: feedback,
+            onArchive: {
+                withAnimation { store.archive(feedback.id) }
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            },
+            onMarkPracticed: {
+                withAnimation { store.markPracticed(feedback.id) }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            },
+            onEdit: { editing = feedback },
+            onDelete: {
+                withAnimation { store.delete(feedback.id) }
+            }
+        )
+    }
+
+    /// 필터가 없으면 저장하고, 필터 중이면 화면에만 늘어놓는다.
+    ///
+    /// 걸러낸 목록에서 옮긴 것을 전체 순서에 반영하면, 사이사이에 다른 기술의
+    /// 피드백이 끼어 있어서 어디로 갔는지 예측할 수 없다.
+    private func move(
+        _ items: [Feedback],
+        in section: ListSection,
+        today: [Feedback],
+        backlog: [Feedback],
+        from source: IndexSet,
+        to destination: Int
+    ) {
+        let ids = items.map(\.id)
+        guard isFiltering else {
+            store.moveFeedbacks(visibleIds: ids, fromOffsets: source, toOffset: destination)
+            return
+        }
+        var moved = ids
+        moveItems(&moved, fromOffsets: source, toOffset: destination)
+        let todayIds = section == .today ? moved : today.map(\.id)
+        let backlogIds = section == .backlog ? moved : backlog.map(\.id)
+        temporaryOrder = todayIds + backlogIds
+    }
+
+    private var temporaryOrderNotice: some View {
+        HStack(spacing: 8) {
+            Label("필터 중 순서는 저장되지 않아요", systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("원래대로") {
+                withAnimation { temporaryOrder = nil }
+            }
+            .font(.caption.weight(.semibold))
+            .buttonStyle(.borderless)
+        }
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+
+    // MARK: - 필터 막대
+
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(.all, title: "전체", systemImage: "list.bullet")
+                chip(.category(.physical), title: FeedbackCategory.physical.displayName,
+                     systemImage: FeedbackCategory.physical.systemImage)
+                chip(.category(.skill), title: FeedbackCategory.skill.displayName,
+                     systemImage: FeedbackCategory.skill.systemImage)
+
+                if !skillChips.isEmpty {
+                    Divider()
+                        .frame(height: 20)
+                    ForEach(skillChips) { skill in
+                        chip(.skill(skill.id), title: skill.name, systemImage: nil)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func chip(_ target: BufferFilter, title: String, systemImage: String?) -> some View {
+        let isSelected = filter == target
         return Button {
             withAnimation(.easeInOut(duration: 0.15)) {
-                categoryFilter = filter.rawValue
+                filterValue = target.storageValue
             }
             UISelectionFeedbackGenerator().selectionChanged()
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: filter.systemImage)
-                Text(filter.displayName)
+                if let systemImage {
+                    Image(systemName: systemImage)
+                }
+                Text(title)
+                    .lineLimit(1)
             }
             .font(.caption.weight(.semibold))
             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
@@ -137,6 +299,8 @@ struct BufferView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
+    // MARK: - 빈 상태
+
     private var emptyState: some View {
         ContentUnavailableView {
             Label("아직 쌓인 피드백이 없습니다", systemImage: "tray")
@@ -145,6 +309,17 @@ struct BufferView: View {
         } actions: {
             Button("기술 라이브러리 보기") {
                 tabSelection = .library
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private var filteredEmptyState: some View {
+        ContentUnavailableView {
+            Label("여기엔 쌓인 피드백이 없어요", systemImage: "line.3.horizontal.decrease.circle")
+        } actions: {
+            Button("전체 보기") {
+                filterValue = BufferFilter.all.storageValue
             }
             .buttonStyle(.bordered)
         }

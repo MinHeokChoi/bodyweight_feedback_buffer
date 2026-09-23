@@ -43,7 +43,7 @@ final class FeedbackStoreTests: StoreTestCase {
         XCTAssertEqual(store.skills.map(\.symbolName), ["pull.ups.full", "figure.core.training", "handstand.full", "ellipsis.circle"])
     }
 
-    func test_addFeedbackAppendsAndPersists() {
+    func test_addFeedbackGoesToTopAndPersists() {
         let store = makeFeedbackStore()
         let skill = store.skills.first!
         let before = store.feedbacks.count
@@ -51,7 +51,7 @@ final class FeedbackStoreTests: StoreTestCase {
         store.addFeedback(skill: skill, title: "  새 피드백  ", note: "memo", importance: 4)
 
         XCTAssertEqual(store.feedbacks.count, before + 1)
-        let added = store.feedbacks.last!
+        let added = store.feedbacks.first!
         XCTAssertEqual(added.title, "새 피드백")
         XCTAssertEqual(added.importance, 4)
         XCTAssertEqual(added.skillId, skill.id)
@@ -281,18 +281,5 @@ final class FeedbackStoreTests: StoreTestCase {
         let reloaded = makeFeedbackStore(fileStore: fileStore)
 
         XCTAssertTrue(reloaded.skills.contains { $0.id == added.id && $0.name == "Back Lever" })
-    }
-
-    func test_topFeedbackIsHighestScored() {
-        let store = makeFeedbackStore()
-        addFeedback(to: store, title: "낮은 중요도", importance: 1)
-        addFeedback(to: store, title: "높은 중요도", importance: 5)
-
-        let top = store.topFeedback
-        XCTAssertNotNil(top)
-        let topScore = FeedbackScoring.score(for: top!)
-        for feedback in store.unarchivedFeedbacks {
-            XCTAssertLessThanOrEqual(FeedbackScoring.score(for: feedback), topScore)
-        }
     }
 }

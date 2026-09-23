@@ -40,6 +40,21 @@ struct EditFeedbackSheet: View {
                     titlePlaceholder: "예: 골반이 흔들림",
                     notePlaceholder: "상세 메모"
                 )
+
+                // 카드에서는 중요도만 보여준다. 쌓인 기록은 여기서 본다.
+                Section("기록") {
+                    LabeledContent("또 한 횟수", value: "\(original.unresolvedCount)회")
+                    LabeledContent("마지막으로 한 날") {
+                        if let reviewed = original.lastReviewedAt {
+                            Text(reviewed, format: .dateTime.month().day())
+                        } else {
+                            Text("아직 없음")
+                        }
+                    }
+                    LabeledContent("적은 날") {
+                        Text(original.createdAt, format: .dateTime.year().month().day())
+                    }
+                }
             }
             .navigationTitle("피드백 수정")
             .navigationBarTitleDisplayMode(.inline)

@@ -11,8 +11,9 @@ struct SkillDetailView: View {
     @State private var addingFeedback = false
     @State private var editing: Feedback?
 
-    private var scoredActive: [(Feedback, Double)] {
-        store.unarchivedFeedbacksScored(forSkillId: skill.id)
+    /// 버퍼와 같은 순서다. 끌기와 오늘 할 것은 버퍼에서만 한다.
+    private var activeFeedbacks: [Feedback] {
+        store.unarchivedFeedbacks(forSkillId: skill.id)
     }
 
     private var archivedFeedbacks: [Feedback] {
@@ -67,7 +68,7 @@ struct SkillDetailView: View {
 
     @ViewBuilder
     private var activeContent: some View {
-        if scoredActive.isEmpty {
+        if activeFeedbacks.isEmpty {
             ContentUnavailableView {
                 Label("아직 피드백이 없어요", systemImage: "tray")
             } description: {
@@ -79,10 +80,9 @@ struct SkillDetailView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(scoredActive, id: \.0.id) { feedback, score in
+                    ForEach(activeFeedbacks) { feedback in
                         FeedbackCardView(
                             feedback: feedback,
-                            score: score,
                             onArchive: { withAnimation { store.archive(feedback.id) } },
                             onMarkPracticed: { withAnimation { store.markPracticed(feedback.id) } },
                             onEdit: { editing = feedback },

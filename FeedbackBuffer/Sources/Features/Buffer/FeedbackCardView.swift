@@ -2,45 +2,26 @@ import SwiftUI
 
 struct FeedbackCardView: View {
     let feedback: Feedback
-    let score: Double
     let onArchive: () -> Void
     let onMarkPracticed: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
     @State private var showingDeleteConfirm = false
-    @State private var showingScoreInfo = false
-
-    private var tier: FeedbackScoring.Tier { FeedbackScoring.tier(for: score) }
-
-    private var tierColor: Color {
-        switch tier {
-        case .critical: .red
-        case .high: .orange
-        case .medium: .yellow
-        case .low: .secondary
-        }
-    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            Rectangle()
-                .fill(tierColor)
-                .frame(width: 4)
-
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 6) {
-                    header
-                    if !feedback.note.isEmpty {
-                        cueView
-                    }
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                header
+                if !feedback.note.isEmpty {
+                    cueView
                 }
-                metaRow
-                actions
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            metaRow
+            actions
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .confirmationDialog(
@@ -56,36 +37,15 @@ struct FeedbackCardView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(feedback.skillName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Text(feedback.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.primary.opacity(0.88))
-                        .lineLimit(2)
-                }
-            }
-            Spacer()
-            Button {
-                showingScoreInfo = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text("\(Int(score.rounded()))점")
-                        .font(.subheadline.weight(.bold).monospacedDigit())
-                        .foregroundStyle(tierColor)
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showingScoreInfo) {
-                ScoreInfoPopover()
-            }
-            .accessibilityLabel("\(Int(score.rounded()))점, 도움말")
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(feedback.skillName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(feedback.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.88))
+                .lineLimit(2)
+            Spacer(minLength: 0)
         }
     }
 
@@ -107,17 +67,17 @@ struct FeedbackCardView: View {
         .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
+    /// 카드에는 중요도만 둔다. 순서를 사용자가 정하게 되면서 나머지 숫자는
+    /// 설명해야 할 짐이 됐다. 연습 횟수는 수정 화면에서 볼 수 있다.
     private var metaRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 14) {
-                ImportanceStars(importance: feedback.importance)
-                metaChip(systemImage: "exclamationmark.bubble", text: "연습 \(feedback.unresolvedCount)회")
-                metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일 경과")
-                PhaseChip(phase: feedback.phase)
+        HStack(spacing: 14) {
+            ImportanceStars(importance: feedback.importance)
+            // 오래 묵은 것만 스스로 드러난다. 순서는 건드리지 않는다.
+            if feedback.isStale {
+                metaChip(systemImage: "clock", text: "\(feedback.daysSinceLastReviewed)일째")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("\(feedback.daysSinceLastReviewed)일째 손대지 않음")
             }
-//            HStack(spacing: 14) {
-//                CategoryChip(category: feedback.category)
-//            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -126,7 +86,7 @@ struct FeedbackCardView: View {
     private var actions: some View {
         HStack(spacing: 8) {
             actionButton("해결", systemImage: "archivebox", tint: .green, action: onArchive)
-            actionButton("연습했어요", systemImage: "figure.run", tint: .orange, action: onMarkPracticed)
+            actionButton("또 하기", systemImage: "arrow.clockwise", tint: .orange, action: onMarkPracticed)
             actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
             actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
         }
@@ -213,81 +173,5 @@ struct CategoryChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .fixedSize(horizontal: true, vertical: false)
-    }
-}
-
-private struct ScoreInfoPopover: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("우선순위 점수")
-                .font(.headline)
-            Text("• 중요도, 연습 횟수, 경과일을 합산해 자동 계산돼요.")
-            Text("• 반복 연습이 필요하고 오래된 피드백이 위로 올라와요.")
-            Divider()
-            HStack(spacing: 8) {
-                tierChip("매우 높음", color: .red)
-                tierChip("높음", color: .orange)
-                tierChip("보통", color: .yellow)
-                tierChip("낮음", color: .secondary)
-            }
-        }
-        .font(.subheadline)
-        .padding(20)
-        .frame(width: 300)
-        .presentationCompactAdaptation(.popover)
-    }
-
-    private func tierChip(_ label: String, color: Color) -> some View {
-        Text(label)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.15), in: Capsule())
-    }
-}
-
-struct PhaseChip: View {
-    let phase: FeedbackPhase
-
-    var body: some View {
-        if let label = displayLabel {
-            HStack(spacing: 4) {
-                Image(systemName: systemImage)
-                Text(label)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .foregroundStyle(tint)
-            .fixedSize(horizontal: true, vertical: false)
-        }
-    }
-
-    private var displayLabel: String? {
-        switch phase {
-        case .new: "새 피드백"
-        case .practicing: "연습 시작"
-        case .adapting: "적응 중"
-        case .archived: nil
-        }
-    }
-
-    private var systemImage: String {
-        switch phase {
-        case .new: "sparkles"
-        case .practicing: "figure.run"
-        case .adapting: "brain.head.profile.fill"
-        case .archived: "archivebox"
-        }
-    }
-
-    private var tint: Color {
-        switch phase {
-        case .new: .secondary
-        case .practicing: .accentColor
-        case .adapting: .green
-        case .archived: .secondary
-        }
     }
 }
