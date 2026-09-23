@@ -2,12 +2,15 @@ import SwiftUI
 
 struct FeedbackCardView: View {
     let feedback: Feedback
+    /// 기술 화면이나 기술 필터 중에는 모든 카드의 기술이 같다. 그때는 숨긴다.
+    var showsSkillName = true
     let onArchive: () -> Void
     let onMarkPracticed: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
     @State private var showingDeleteConfirm = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -36,17 +39,10 @@ struct FeedbackCardView: View {
         }
     }
 
+    /// 기술명은 작게, 빈 공간은 온전한 글자색으로. 둘이 같은 굵기라 한 문장처럼 읽혔다.
+    /// 한 덩어리 글로 이어 붙여서 큰 글씨에서도 제목이 좁은 칸에 들여 써지지 않고 자연스럽게 줄바꿈된다.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(feedback.skillName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(feedback.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.primary.opacity(0.88))
-                .lineLimit(2)
-            Spacer(minLength: 0)
-        }
+        CardHeaderText(skillName: showsSkillName ? feedback.skillName : nil, title: feedback.title)
     }
 
     private var cueView: some View {
@@ -83,32 +79,41 @@ struct FeedbackCardView: View {
         .foregroundStyle(.secondary)
     }
 
+    /// 자주 누르는 해결·또 하기는 글자가 붙은 넓은 버튼, 드물게 누르는 수정·삭제는 아이콘만.
+    /// 순서는 그대로 둔다 — 손이 자리를 기억한다. 큰 글씨에서는 두 줄로 나눈다.
     private var actions: some View {
-        HStack(spacing: 8) {
-            actionButton("해결", systemImage: "archivebox", tint: .green, action: onArchive)
-            actionButton("또 하기", systemImage: "arrow.clockwise", tint: .orange, action: onMarkPracticed)
-            actionButton("수정", systemImage: "pencil", tint: .blue, action: onEdit)
-            actionButton("삭제", systemImage: "trash", tint: .red) { showingDeleteConfirm = true }
-        }
-    }
+        let resolve = CardActionButton.labeled(
+            "해결", systemImage: "checkmark.circle", tint: .green, text: DS.Tint.successText, action: onArchive
+        )
+        let again = CardActionButton.labeled(
+            "또 하기", systemImage: "arrow.clockwise", tint: .accentColor, text: DS.Tint.accentText, action: onMarkPracticed
+        )
+        let edit = CardActionButton.icon("수정", systemImage: "pencil", action: onEdit)
+        let delete = CardActionButton.icon("삭제", systemImage: "trash") { showingDeleteConfirm = true }
 
-    private func actionButton(_ title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: systemImage)
-                    .font(.caption.weight(.semibold))
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+        // 넓이를 재서 고르는 방식(ViewThatFits)은 버튼이 늘어나는 폭이라 줄바꿈을 고르지 못했다.
+        // 글자 크기로 정한다.
+        return Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(spacing: 8) {
+                        resolve
+                        again
+                    }
+                    HStack(spacing: 8) {
+                        edit
+                        delete
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    resolve
+                    again
+                    edit
+                    delete
+                }
             }
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity, minHeight: 34)
-            .modifier(ActionButtonSurface(tint: tint))
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
     }
 
     private func metaChip(systemImage: String, text: String) -> some View {
@@ -121,25 +126,98 @@ struct FeedbackCardView: View {
     }
 }
 
-private struct ActionButtonSurface: ViewModifier {
-    let tint: Color
+/// 카드 첫 줄. 기술명은 작고 흐리게, 빈 공간은 또렷하게.
+struct CardHeaderText: View {
+    let skillName: String?
+    let title: String
 
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content
-                .glassEffect(.regular.tint(tint.opacity(0.18)).interactive(), in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(tint.opacity(0.35), lineWidth: 1)
-                }
+    var body: some View {
+        text
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var text: Text {
+        let title = Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+        guard let skillName else { return title }
+        return Text(skillName)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            + Text("  ")
+            + title
+    }
+}
+
+/// 카드 아래 버튼. 모두 44pt 높이라 한 손으로 눌러도 옆 버튼을 치지 않는다.
+struct CardActionButton: View {
+    private enum Style {
+        case labeled(tint: Color, text: Color)
+        case icon
+    }
+
+    private let title: String
+    private let systemImage: String
+    private let style: Style
+    private let action: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    static func labeled(
+        _ title: String,
+        systemImage: String,
+        tint: Color,
+        text: Color,
+        action: @escaping () -> Void
+    ) -> CardActionButton {
+        CardActionButton(title: title, systemImage: systemImage, style: .labeled(tint: tint, text: text), action: action)
+    }
+
+    static func icon(_ title: String, systemImage: String, action: @escaping () -> Void) -> CardActionButton {
+        CardActionButton(title: title, systemImage: systemImage, style: .icon, action: action)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            switch style {
+            case let .labeled(tint, text):
+                // 큰 글씨에서는 아이콘을 빼고 글자에 자리를 준다. 아이콘 때문에 "또..."로 잘렸다.
+                Label(title, systemImage: systemImage)
+                    .labelStyle(TitleOnlyWhen(typeSize.isAccessibilitySize))
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .foregroundStyle(text)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(tint.opacity(0.14), in: Capsule())
+                    .contentShape(Capsule())
+            case .icon:
+                Image(systemName: systemImage)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .background(Color(.tertiarySystemFill), in: Circle())
+                    .contentShape(Circle())
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
+
+private struct TitleOnlyWhen: LabelStyle {
+    let titleOnly: Bool
+
+    init(_ titleOnly: Bool) {
+        self.titleOnly = titleOnly
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        if titleOnly {
+            configuration.title
         } else {
-            content
-                .background(tint.opacity(0.18), in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(tint.opacity(0.42), lineWidth: 1)
-                }
+            Label(configuration)
         }
     }
 }

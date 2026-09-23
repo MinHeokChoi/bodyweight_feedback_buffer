@@ -140,8 +140,7 @@ struct BufferView: View {
         let today = displayed(store.todayFeedbacks())
         let backlog = displayed(store.backlogFeedbacks())
 
-        VStack(spacing: 0) {
-            filterBar
+        Group {
             if store.unarchivedFeedbacks.isEmpty {
                 emptyState
             } else if today.isEmpty && backlog.isEmpty {
@@ -174,6 +173,14 @@ struct BufferView: View {
                 .scrollContentBackground(.hidden)
                 .allowsHitTesting(!isSettling)
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 칩 막대를 목록 위 여백으로 붙인다. 목록 바깥 VStack에 두면 큰 제목이
+        // 스크롤해도 접히지 않아 화면 위쪽 4분의 1을 계속 차지했다.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // 바탕은 칩 막대 자리에만 깐다. 기본값대로 안전 영역까지 늘어나면 큰 제목을 덮는다.
+            filterBar
+                .background(Color(.systemBackground), ignoresSafeAreaEdges: [])
         }
     }
 
@@ -233,6 +240,8 @@ struct BufferView: View {
     private func card(for feedback: Feedback) -> some View {
         FeedbackCardView(
             feedback: feedback,
+            // 기술 하나만 보는 중이면 카드마다 같은 기술명을 되풀이하지 않는다.
+            showsSkillName: filter.draftSkillId == nil,
             onArchive: {
                 withAnimation { store.archive(feedback.id) }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -304,24 +313,35 @@ struct BufferView: View {
     // MARK: - 필터 막대
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                chip(.all, title: "전체", systemImage: "list.bullet")
-                chip(.category(.physical), title: FeedbackCategory.physical.displayName,
-                     systemImage: FeedbackCategory.physical.systemImage)
-                chip(.category(.skill), title: FeedbackCategory.skill.displayName,
-                     systemImage: FeedbackCategory.skill.systemImage)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    chip(.all, title: "전체", systemImage: "list.bullet")
+                    chip(.category(.physical), title: FeedbackCategory.physical.displayName,
+                         systemImage: FeedbackCategory.physical.systemImage)
+                    chip(.category(.skill), title: FeedbackCategory.skill.displayName,
+                         systemImage: FeedbackCategory.skill.systemImage)
 
-                if !skillChips.isEmpty {
-                    Divider()
-                        .frame(height: 20)
-                    ForEach(skillChips) { skill in
-                        chip(.skill(skill.id), title: skill.name, systemImage: nil)
+                    if !skillChips.isEmpty {
+                        Divider()
+                            .frame(height: 20)
+                        ForEach(skillChips) { skill in
+                            chip(.skill(skill.id), title: skill.name, systemImage: nil)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            // 필터는 앱을 다시 켜도 남는다. 고른 칩이 화면 밖에 있으면 걸러진 목록인 줄 모르고 본다.
+            .onAppear {
+                proxy.scrollTo(filter.storageValue, anchor: .center)
+            }
+            .onChange(of: filterValue) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(filter.storageValue, anchor: .center)
+                }
+            }
         }
     }
 
@@ -349,6 +369,7 @@ struct BufferView: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .id(target.storageValue)
     }
 
     // MARK: - 빈 상태

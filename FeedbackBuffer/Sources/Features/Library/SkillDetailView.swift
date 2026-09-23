@@ -86,6 +86,7 @@ struct SkillDetailView: View {
                     ForEach(activeFeedbacks) { feedback in
                         FeedbackCardView(
                             feedback: feedback,
+                            showsSkillName: false,
                             onArchive: {
                                 withAnimation { store.archive(feedback.id) }
                                 UINotificationFeedbackGenerator().notificationOccurred(.success)

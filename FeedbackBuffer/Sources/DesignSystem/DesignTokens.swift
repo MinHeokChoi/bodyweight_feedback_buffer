@@ -84,6 +84,8 @@ enum DS {
         /// 채움색은 그대로 두고(D19) 라이트 모드 글자만 명도를 낮춘다. 흰 바탕에서 약 4.8:1이다.
         /// 다크 모드는 원래 색으로도 충분히 읽힌다.
         static let accentText = Color(light: 0xC8452A, dark: 0xFF8A66)
+        /// 해결·완료·개선. 시스템 초록 글자는 옅은 초록 바탕 위에서 약 2:1이었다.
+        static let successText = Color(light: 0x1F7A35, dark: 0x32D74B)
     }
 
     // MARK: - Segment palette
