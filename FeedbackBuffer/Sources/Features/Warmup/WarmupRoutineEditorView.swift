@@ -54,7 +54,8 @@ struct WarmupRoutineEditorView: View {
                 }
             }
             .environment(\.editMode, $editMode)
-            .navigationTitle("웜업 루틴 수정")
+            // 어느 루틴을 고치는지 제목으로 알린다.
+            .navigationTitle(store.currentWarmupSession?.name ?? "웜업 루틴 수정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

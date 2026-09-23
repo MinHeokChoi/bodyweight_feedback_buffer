@@ -13,6 +13,8 @@ enum MeasurementProgress {
         let best: Double
         /// 그 시즌의 기록 전부. 최신 순.
         let records: [MeasurementRecord]
+        /// 직전 시즌의 대표값. 첫 시즌이면 nil. 변화를 "5회 → 3회"처럼 보여주는 데 쓴다.
+        let previousBest: Double?
         /// 직전 시즌 대비 변화. 방향을 적용했으므로 양수면 개선이다. 첫 시즌이면 nil.
         let improvement: Double?
         /// 이 시즌의 기록 중 지금 종목 제약과 다른 조건에서 잰 것이 있는가.
@@ -58,6 +60,7 @@ enum MeasurementProgress {
                     season: season,
                     best: best,
                     records: values,
+                    previousBest: previousBest,
                     improvement: previousBest.map { item.direction.improvement(from: $0, to: best) },
                     constraintChanged: changed
                 )

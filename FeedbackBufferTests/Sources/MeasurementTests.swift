@@ -121,6 +121,17 @@ final class MeasurementProgressTests: XCTestCase {
         XCTAssertTrue(history[1].isImproved)
     }
 
+    func test_entryKnowsThePreviousSeasonsBest() {
+        let (item, seasons) = fixture(direction: .lowerIsBetter)
+        let records = [record(item, seasons[1], 5), record(item, seasons[2], 3)]
+
+        let history = MeasurementProgress.history(of: item, records: records, seasons: seasons)
+
+        XCTAssertEqual(history[0].previousBest, 5)
+        XCTAssertEqual(history[0].best, 3)
+        XCTAssertNil(history[1].previousBest, "첫 시즌은 견줄 값이 없다")
+    }
+
     func test_lowerIsBetterReadsFewerAsImprovement() {
         var (item, seasons) = fixture(direction: .lowerIsBetter)
         item.movement = "밸런스"

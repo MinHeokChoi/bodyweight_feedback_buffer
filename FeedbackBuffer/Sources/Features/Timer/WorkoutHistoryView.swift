@@ -3,12 +3,19 @@ import SwiftUI
 /// 운동 기록 목록. 하루 단위로 묶는다.
 struct WorkoutHistoryView: View {
     @Environment(WorkoutTimerStore.self) private var store
+    /// 통계의 달력에서 하루를 눌러 들어왔으면 그날만 보여준다.
+    var day: Date?
     @State private var pendingDelete: WorkoutSession?
     @State private var editorMode: WorkoutSessionEditorView.Mode?
 
+    private var visibleSessions: [WorkoutSession] {
+        guard let day else { return store.sessions }
+        return store.sessions.filter { Calendar.current.isDate($0.startedAt, inSameDayAs: day) }
+    }
+
     private var grouped: [(day: Date, sessions: [WorkoutSession])] {
         let calendar = Calendar.current
-        let buckets = Dictionary(grouping: store.sessions) {
+        let buckets = Dictionary(grouping: visibleSessions) {
             calendar.startOfDay(for: $0.startedAt)
         }
         return buckets
@@ -18,14 +25,14 @@ struct WorkoutHistoryView: View {
 
     var body: some View {
         Group {
-            if store.sessions.isEmpty {
+            if visibleSessions.isEmpty {
                 emptyState
             } else {
                 list
             }
         }
         .background(DS.Surface.page.ignoresSafeArea())
-        .navigationTitle("기록")
+        .navigationTitle(day.map { $0.formatted(.dateTime.month().day().weekday()) } ?? "기록")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -37,8 +44,9 @@ struct WorkoutHistoryView: View {
                 .accessibilityLabel("기록 직접 추가")
             }
         }
+        // 하루만 보는 중에 새로 적으면 그날로 적는다. 오늘로 들어가면 보던 목록에 나타나지 않는다.
         .sheet(item: $editorMode) { mode in
-            WorkoutSessionEditorView(mode: mode).environment(store)
+            WorkoutSessionEditorView(mode: mode, initialDate: day).environment(store)
         }
         .confirmationDialog(
             "이 기록을 삭제할까요?",
@@ -115,10 +123,12 @@ struct WorkoutHistoryView: View {
 
             SegmentRatioBar(byKind: session.durationByKind(), rest: session.restDuration())
 
-            Text(session.segments.map(\.kind.displayName).joined(separator: " · "))
+            Text(session.segmentSummary)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                // "×2"를 "곱하기 2"로 읽지 않게 한다.
+                .accessibilityLabel(session.segmentSummarySpoken)
         }
         .dsCard(padding: DS.Spacing.md)
         .accessibilityElement(children: .combine)
@@ -129,11 +139,16 @@ struct WorkoutHistoryView: View {
             Image(systemName: "stopwatch")
                 .font(.system(size: 44))
                 .foregroundStyle(.tertiary)
-            Text("아직 기록이 없어요")
-                .font(DS.Typo.value)
-            Text("타이머에서 구간을 시작하면 기록이 쌓여요.")
-                .font(DS.Typo.metaLabel)
-                .foregroundStyle(.secondary)
+            if day == nil {
+                Text("아직 기록이 없어요")
+                    .font(DS.Typo.value)
+                Text("타이머에서 구간을 시작하면 기록이 쌓여요.")
+                    .font(DS.Typo.metaLabel)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("이 날의 기록이 없어요")
+                    .font(DS.Typo.value)
+            }
             Button("직접 추가하기") { editorMode = .create }
                 .dsBorderedButton()
                 .padding(.top, DS.Spacing.xs)

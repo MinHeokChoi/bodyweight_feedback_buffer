@@ -22,6 +22,8 @@ struct WorkoutSessionEditorView: View {
     @Environment(\.dismiss) private var dismiss
 
     let mode: Mode
+    /// 새로 적을 때의 날짜. 통계 달력에서 하루를 골라 들어왔으면 그날이다.
+    var initialDate: Date?
 
     @State private var date: Date = .now
     @State private var blocks: [WorkoutSessionEditor.Block] = []
@@ -192,6 +194,7 @@ struct WorkoutSessionEditorView: View {
             date = session.startedAt
             blocks = WorkoutSessionEditor.blocks(of: session)
         } else {
+            date = min(initialDate ?? .now, .now)
             blocks = [WorkoutSessionEditor.Block(kind: .warmup, duration: 0)]
         }
         for block in blocks {

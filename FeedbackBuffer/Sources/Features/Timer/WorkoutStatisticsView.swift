@@ -20,7 +20,10 @@ struct WorkoutStatisticsView: View {
                 } else {
                     metrics
                     distribution
-                    weeklyTrend
+                    // 7일은 한두 주라 주 단위 막대가 한 줄로 화면을 채울 뿐이다.
+                    if period != .last7Days {
+                        weeklyTrend
+                    }
                     attendance
                 }
             }
@@ -163,10 +166,30 @@ struct WorkoutStatisticsView: View {
                         AxisValueLabel(format: .dateTime.month().day())
                     }
                 }
+                // 기간 전체를 축으로 둔다. 운동한 주만 있으면 막대 하나가 폭을 다 차지하고
+                // 쉰 주가 보이지 않았다.
+                .chartXScale(domain: weekDomain)
                 .frame(height: 180)
                 .dsTile()
             }
         }
+    }
+
+    /// 주 차트의 가로 범위. 기간 첫 주의 시작부터 이번 주 끝까지.
+    private var weekDomain: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let first = period.dayCount
+            .flatMap { calendar.date(byAdding: .day, value: -($0 - 1), to: today) }
+            ?? store.sessions.map(\.startedAt).min()
+            ?? today
+        let start = WorkoutStatistics.startOfWeek(for: first, calendar: calendar)
+        let end = calendar.date(
+            byAdding: .day,
+            value: 7,
+            to: WorkoutStatistics.startOfWeek(for: today, calendar: calendar)
+        ) ?? today
+        return start...end
     }
 
     /// 한 주의 구간 시간을 합쳐 가장 큰 값을 구한다. 축 단위를 고르는 데 쓴다.
@@ -187,7 +210,16 @@ struct WorkoutStatisticsView: View {
         let cells = calendarCells()
 
         return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            DSSectionLabel(text: "운동한 날")
+            HStack {
+                DSSectionLabel(text: "운동한 날")
+                // 칸만 있으면 어느 날인지 추론해야 했다. 기간을 글로 적는다.
+                if let first = cells.compactMap({ $0 }).first {
+                    Text("\(first.formatted(.dateTime.month().day())) – 오늘")
+                        .font(DS.Typo.sectionLabel)
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                }
+            }
 
             VStack(spacing: DS.Spacing.xs) {
                 weekdayHeader
@@ -198,16 +230,20 @@ struct WorkoutStatisticsView: View {
                 ) {
                     ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
                         if let day {
-                            let total = byDay[day]
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(heatColor(total?.trainingDuration ?? 0, max: maxDuration))
-                                .aspectRatio(1, contentMode: .fit)
-                                .accessibilityLabel(Text(day, format: .dateTime.month().day()))
-                                .accessibilityValue(
-                                    total == nil
-                                        ? "운동 없음"
-                                        : WorkoutTimeFormat.spoken(total!.trainingDuration)
-                                )
+                            // 칸 날짜와 집계 키를 같은 하루 시작으로 맞춘다. 자정에 서머타임이
+                            // 시작되는 지역에서는 하루를 빼 가며 만든 날짜가 한 시간 어긋났다.
+                            let total = byDay[Calendar.current.startOfDay(for: day)]
+                            // 운동한 날은 눌러서 그날 기록으로 간다(FR-8).
+                            if total != nil {
+                                NavigationLink {
+                                    WorkoutHistoryView(day: day)
+                                } label: {
+                                    heatCell(day: day, total: total, maxDuration: maxDuration)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                heatCell(day: day, total: nil, maxDuration: maxDuration)
+                            }
                         } else {
                             // 첫 주의 빈 칸. 열이 요일을 뜻하도록 자리를 맞춘다.
                             Color.clear
@@ -219,6 +255,37 @@ struct WorkoutStatisticsView: View {
             }
             .dsTile()
         }
+    }
+
+    /// 날짜 숫자와 오늘 테두리가 있는 칸. 매달 1일은 "10월"처럼 달을 적는다.
+    private func heatCell(day: Date, total: WorkoutStatistics.DailyTotal?, maxDuration: TimeInterval) -> some View {
+        let calendar = Calendar.current
+        let dayNumber = calendar.component(.day, from: day)
+        let isToday = calendar.isDateInToday(day)
+
+        return RoundedRectangle(cornerRadius: DS.Radius.bar)
+            .fill(heatColor(total?.trainingDuration ?? 0, max: maxDuration))
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                Text(dayNumber == 1 ? day.formatted(.dateTime.month()) : "\(dayNumber)")
+                    .font(.caption2.weight(dayNumber == 1 ? .bold : .regular).monospacedDigit())
+                    .foregroundStyle(total == nil ? Color.secondary : Color.primary)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .padding(2)
+            }
+            .overlay {
+                if isToday {
+                    RoundedRectangle(cornerRadius: DS.Radius.bar)
+                        .stroke(Color.primary.opacity(0.7), lineWidth: 1.5)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(day, format: .dateTime.month().day()))
+            .accessibilityValue(
+                total.map { WorkoutTimeFormat.spoken($0.trainingDuration) } ?? "운동 없음"
+            )
+            .accessibilityHint(total == nil ? "" : "눌러서 그날 기록을 봐요")
     }
 
     private var weekdayHeader: some View {

@@ -53,8 +53,12 @@ struct WorkoutSessionDetailView: View {
         VStack(spacing: DS.Spacing.sm) {
             HStack(spacing: DS.Spacing.sm) {
                 DSMetric(label: "운동 시간", value: WorkoutTimeFormat.compact(session.trainingDuration()))
-                DSMetric(label: "휴식", value: WorkoutTimeFormat.compact(session.restDuration()))
+                // 직접 적은 기록에는 휴식이라는 사실이 없다(N9). 계산상 0을 잰 값처럼 보여주지 않는다.
+                if session.source == .timer {
+                    DSMetric(label: "휴식", value: WorkoutTimeFormat.compact(session.restDuration()))
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
             // 직접 적은 기록에는 시각이 없다. 묻지 않은 값을 지어내지 않는다.
             if session.source == .manual {
                 DSPill(text: "직접 입력한 기록", color: .secondary)

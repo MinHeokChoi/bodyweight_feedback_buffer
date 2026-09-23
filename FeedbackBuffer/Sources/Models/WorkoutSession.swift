@@ -216,3 +216,32 @@ struct WorkoutSession: Identifiable, Codable, Hashable {
 
     var isPaused: Bool { pauses.contains(where: \.isOpen) }
 }
+
+extension WorkoutSession {
+    /// 기록 목록에 쓰는 구간 순서. "기술 연습 · 기술 연습" 대신 "기술 연습 ×2"처럼
+    /// 이어서 반복한 것만 접고 순서는 지킨다.
+    var segmentSummary: String {
+        segmentRuns
+            .map { $0.count > 1 ? "\($0.kind.displayName) ×\($0.count)" : $0.kind.displayName }
+            .joined(separator: " · ")
+    }
+
+    /// VoiceOver용. "×2"는 "곱하기 2"로 읽힌다.
+    var segmentSummarySpoken: String {
+        segmentRuns
+            .map { $0.count > 1 ? "\($0.kind.displayName) \($0.count)번" : $0.kind.displayName }
+            .joined(separator: ", ")
+    }
+
+    private var segmentRuns: [(kind: TrainingPhaseKind, count: Int)] {
+        var runs: [(kind: TrainingPhaseKind, count: Int)] = []
+        for segment in segments {
+            if let last = runs.last, last.kind == segment.kind {
+                runs[runs.count - 1].count += 1
+            } else {
+                runs.append((segment.kind, 1))
+            }
+        }
+        return runs
+    }
+}

@@ -191,21 +191,28 @@ struct MeasurementHomeView: View {
     }
 }
 
-/// 직전 시즌 대비 변화. 방향을 이미 적용한 값이므로 양수면 언제나 개선이다.
+/// 직전 시즌 대비 변화. "5회 → 3회 · 개선"처럼 값과 말로 쓴다(MR-2).
+///
+/// 화살표와 차이만 쓰면 낮을수록 좋은 종목에서 5회→3회가 "↗ 2회"로 보여 거꾸로 읽혔다.
+/// 방향은 이미 적용돼 있으므로 개선인지 후퇴인지만 말하면 된다.
 struct MeasurementChangeBadge: View {
     let entry: MeasurementProgress.SeasonEntry
     let unit: MeasurementUnit
 
     var body: some View {
-        if let improvement = entry.improvement, improvement != 0 {
-            Label(
-                unit.format(abs(improvement)),
-                systemImage: improvement > 0 ? "arrow.up.right" : "arrow.down.right"
-            )
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle((improvement > 0 ? Color.green : Color.orange).readableText)
-            .accessibilityLabel(improvement > 0 ? "개선" : "후퇴")
-            .accessibilityValue(unit.format(abs(improvement)))
+        if let previous = entry.previousBest, let improvement = entry.improvement {
+            // 보이는 값이 같으면 "그대로"다. 62.54kg와 62.46kg를 "62.5kg → 62.5kg · 후퇴"라고 하지 않는다.
+            let looksSame = unit.format(previous) == unit.format(entry.best)
+            let verdict = looksSame ? "그대로" : improvement > 0 ? "개선" : "후퇴"
+            let color: Color = looksSame ? .secondary
+                : improvement > 0 ? Color.green.readableText
+                : Color.orange.readableText
+            Text("\(unit.format(previous)) → \(unit.format(entry.best)) · \(verdict)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .accessibilityLabel("지난 시즌 \(unit.format(previous))에서 \(unit.format(entry.best)), \(verdict)")
         }
     }
 }

@@ -267,11 +267,15 @@ final class WarmupStore {
         persistWarmupSessions()
     }
 
-    func selectWarmupSession(_ id: UUID) {
+    /// - Parameter persist: false면 기억하지 않는다. 다른 루틴의 항목을 고치러 잠깐 바꿀 때 쓴다 —
+    ///   편집 중에 앱이 꺼져도 다음에 켜면 원래 고른 루틴이다.
+    func selectWarmupSession(_ id: UUID, persist: Bool = true) {
         guard warmupSessions.contains(where: { $0.id == id }) else { return }
         guard selectedWarmupSessionId != id else { return }
         selectedWarmupSessionId = id
-        warmupRepository.saveSelectedSessionId(id)
+        if persist {
+            warmupRepository.saveSelectedSessionId(id)
+        }
         warmup = loadWarmup(for: .now)
         didFinishRunnerToday = loadRunnerFinished(for: .now)
     }

@@ -8,6 +8,9 @@ struct WarmupSessionPickerSheet: View {
     @State private var renamingSession: WarmupSession?
     @State private var deletingSession: WarmupSession?
     @State private var editingItemsSession: WarmupSession?
+    /// 다른 루틴의 항목을 고치러 들어갈 때 원래 고른 루틴. 편집을 닫으면 되돌린다.
+    /// 편집기는 지금 고른 루틴만 다루므로 잠깐 바꿨다가, 오늘 쓸 루틴은 조용히 바뀌지 않게 한다.
+    @State private var restoreSessionId: UUID?
 
     var body: some View {
         NavigationStack {
@@ -39,7 +42,7 @@ struct WarmupSessionPickerSheet: View {
             .sheet(item: $renamingSession) { session in
                 RenameSessionSheet(session: session).environment(store)
             }
-            .sheet(item: $editingItemsSession) { _ in
+            .sheet(item: $editingItemsSession, onDismiss: restoreSelection) { _ in
                 WarmupRoutineEditorView().environment(store)
             }
             .confirmationDialog(
@@ -61,6 +64,12 @@ struct WarmupSessionPickerSheet: View {
                 Text("루틴의 항목과 오늘 체크한 것이 함께 사라져요.")
             }
         }
+    }
+
+    private func restoreSelection() {
+        guard let id = restoreSessionId else { return }
+        restoreSessionId = nil
+        store.selectWarmupSession(id, persist: false)
     }
 
     private func row(for session: WarmupSession) -> some View {
@@ -88,7 +97,10 @@ struct WarmupSessionPickerSheet: View {
                     Label("이름 변경", systemImage: "pencil")
                 }
                 Button {
-                    store.selectWarmupSession(session.id)
+                    if store.selectedWarmupSessionId != session.id {
+                        restoreSessionId = store.selectedWarmupSessionId
+                        store.selectWarmupSession(session.id, persist: false)
+                    }
                     editingItemsSession = session
                 } label: {
                     Label("항목 수정", systemImage: "list.bullet")

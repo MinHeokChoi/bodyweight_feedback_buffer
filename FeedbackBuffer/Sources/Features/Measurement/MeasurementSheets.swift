@@ -14,9 +14,15 @@ struct MeasurementItemEditorSheet: View {
     @State private var unit: MeasurementUnit = .reps
     @State private var direction: MeasurementDirection = .higherIsBetter
     @State private var didSeed = false
+    @State private var confirmingDirectionChange = false
 
     private var canSave: Bool {
         !movement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// 이미 남긴 기록 수. 기록은 숫자만 저장하므로 단위와 방향이 바뀌면 지난 값의 뜻도 바뀐다.
+    private var recordCount: Int {
+        item.map { store.recordCount(of: $0) } ?? 0
     }
 
     var body: some View {
@@ -46,13 +52,21 @@ struct MeasurementItemEditorSheet: View {
                     Text("어떤 조건에서 쟀는지 적어두세요. 이 조건이 같아야 시즌끼리 비교할 수 있어요.")
                 }
 
-                Section("단위") {
+                Section {
                     Picker("단위", selection: $unit) {
                         ForEach(MeasurementUnit.allCases) { unit in
                             Text(unit.displayName).tag(unit)
                         }
                     }
                     .pickerStyle(.segmented)
+                    // 12회가 12kg이 되면 지난 시즌 비교가 거짓이 된다.
+                    .disabled(recordCount > 0)
+                } header: {
+                    Text("단위")
+                } footer: {
+                    if recordCount > 0 {
+                        Text("기록이 \(recordCount)개 있어 단위는 바꿀 수 없어요. 지난 값의 뜻이 달라져요.")
+                    }
                 }
 
                 Section {
@@ -74,8 +88,25 @@ struct MeasurementItemEditorSheet: View {
                     Button("취소") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") { save() }.disabled(!canSave)
+                    Button("저장") {
+                        if let item, recordCount > 0, direction != item.direction {
+                            confirmingDirectionChange = true
+                        } else {
+                            save()
+                        }
+                    }
+                    .disabled(!canSave)
                 }
+            }
+            .confirmationDialog(
+                "잘한 것의 방향을 바꿀까요?",
+                isPresented: $confirmingDirectionChange,
+                titleVisibility: .visible
+            ) {
+                Button("바꾸고 저장") { save() }
+                Button("취소", role: .cancel) { }
+            } message: {
+                Text("시즌마다 가장 잘한 값을 새 방향으로 다시 고르고, 개선과 후퇴도 다시 계산해요.")
             }
             .onAppear(perform: seed)
         }
@@ -141,6 +172,7 @@ struct MeasurementRecordSheet: View {
     /// 시즌을 직접 골랐는지. 고르기 전에는 잰 날이 속한 시즌을 따라간다.
     @State private var seasonChosen = false
     @State private var confirmingDelete = false
+    @FocusState private var valueFocused: Bool
 
     init(item: MeasurementItem, record: MeasurementRecord? = nil) {
         self.item = item
@@ -167,12 +199,29 @@ struct MeasurementRecordSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(item.displayName) {
+                // 어떤 조건에서 재는지가 값보다 먼저다. 맨 아래 회색으로 두면 적고 나서야 보였다.
+                if !item.constraint.isEmpty {
+                    Section {
+                        Text(item.constraint)
+                            .font(DS.Typo.metaLabel)
+                    } header: {
+                        Text("이 종목의 제약")
+                    }
+                }
+
+                Section {
                     HStack {
                         TextField("값", text: $valueText)
-                            .keyboardType(.decimalPad)
+                            .keyboardType(item.unit == .reps ? .numberPad : .decimalPad)
+                            .focused($valueFocused)
                         Text(item.unit.displayName)
                             .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text(item.displayName)
+                } footer: {
+                    if let hint = lastRecordHint {
+                        Text(hint)
                     }
                 }
 
@@ -217,16 +266,6 @@ struct MeasurementRecordSheet: View {
                         .lineLimit(1...4)
                 }
 
-                if !item.constraint.isEmpty {
-                    Section {
-                        Text(item.constraint)
-                            .font(DS.Typo.metaLabel)
-                            .foregroundStyle(.secondary)
-                    } header: {
-                        Text("이 종목의 제약")
-                    }
-                }
-
                 if record != nil {
                     Section {
                         Button("이 기록 삭제", role: .destructive) {
@@ -247,6 +286,8 @@ struct MeasurementRecordSheet: View {
             }
             .onAppear {
                 seasonId = seasonId ?? containingSeason?.id
+                // 새로 남길 때는 바로 숫자를 친다. 고칠 때는 무엇을 고칠지 먼저 본다.
+                if record == nil { valueFocused = true }
             }
             // 시즌은 시작일로만 정해지므로 잰 날이 곧 시즌이다(N16).
             // 과거 날짜로 적으면 그때의 시즌으로 들어가야 한다.
@@ -262,6 +303,19 @@ struct MeasurementRecordSheet: View {
                 Button("취소", role: .cancel) { }
             }
         }
+    }
+
+    /// 이 날짜 전에 마지막으로 잰 값. 지난번에 얼마였는지 보면서 적는다.
+    /// 옛 기록을 고칠 때 그보다 나중 기록을 "지난번"이라고 하지 않는다.
+    /// 값은 칸에 적는 단위 그대로 보여준다 — 초 종목을 1:15로 보여주면 75를 적어야 하는 줄 모른다.
+    private var lastRecordHint: String? {
+        guard let last = store.records
+            .filter({ $0.itemId == item.id && $0.id != record?.id && $0.measuredAt < measuredAt })
+            .max(by: { $0.measuredAt < $1.measuredAt }) else { return nil }
+        let value = item.unit == .seconds
+            ? "\(Self.editableText(last.value))초"
+            : item.unit.format(last.value)
+        return "지난번 \(value) · \(last.measuredAt.formatted(.dateTime.month().day()))"
     }
 
     /// 잰 날이 속한 시즌. 첫 시즌보다 앞선 날이면 없다.

@@ -369,4 +369,17 @@ final class WarmupStoreTests: StoreTestCase {
 
         XCTAssertEqual(store.runnerStartIndex(), 0)
     }
+
+    /// 다른 루틴의 항목을 고치러 잠깐 바꾼 것은 기억하지 않는다. 편집 중에 앱이 꺼져도 원래 루틴이다.
+    func test_temporarySelectionIsNotRemembered() {
+        let store = makeWarmupStore()
+        let other = store.addWarmupSession(name: "짧은 웜업", items: [WarmupItem(id: "wrist", label: "손목")])
+        let original = store.warmupSessions.first { $0.id != other.id }!.id
+        store.selectWarmupSession(original)
+
+        store.selectWarmupSession(other.id, persist: false)
+
+        XCTAssertEqual(store.selectedWarmupSessionId, other.id)
+        XCTAssertEqual(makeWarmupStore().selectedWarmupSessionId, original)
+    }
 }

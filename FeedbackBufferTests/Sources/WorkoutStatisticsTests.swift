@@ -225,6 +225,28 @@ final class WorkoutStatisticsTests: XCTestCase {
         XCTAssertEqual(strength.count, 1, "같은 주는 한 항목으로 합쳐진다")
         XCTAssertEqual(strength[0].duration, 3600, accuracy: 0.001)
     }
+
+    func testSegmentSummaryCollapsesOnlyConsecutiveRepeats() {
+        func segment(_ kind: TrainingPhaseKind, _ start: TimeInterval) -> TrainingSegment {
+            TrainingSegment(kind: kind, startedAt: now.addingTimeInterval(start), endedAt: now.addingTimeInterval(start + 10))
+        }
+        let session = WorkoutSession(
+            startedAt: now,
+            segments: [segment(.skillPractice, 0), segment(.skillPractice, 20), segment(.strength, 40), segment(.skillPractice, 60)]
+        )
+        XCTAssertEqual(session.segmentSummary, "기술 연습 ×2 · 스트렝스 · 기술 연습")
+    }
+
+    /// 연속은 기간에 잘리지 않는다. 7일을 골라도 그 전부터 이어진 날을 센다.
+    func testStreaksIgnoreThePeriod() {
+        let sessions = (0..<10).map { session(dayOffset: -$0) }
+
+        let summary = WorkoutStatistics.summary(for: sessions, in: .last7Days, now: now, calendar: calendar)
+
+        XCTAssertEqual(summary.dayCount, 7)
+        XCTAssertEqual(summary.currentStreak, 10)
+        XCTAssertEqual(summary.longestStreak, 10)
+    }
 }
 
 final class WorkoutTimeFormatTests: XCTestCase {
@@ -250,6 +272,14 @@ final class WorkoutTimeFormatTests: XCTestCase {
         XCTAssertEqual(WorkoutTimeFormat.compact(600), "10분")
         XCTAssertEqual(WorkoutTimeFormat.compact(45), "45초")
         XCTAssertEqual(WorkoutTimeFormat.compact(0), "0분")
+    }
+
+    func testSpokenReadsSeconds() {
+        XCTAssertEqual(WorkoutTimeFormat.spoken(105), "1분 45초")
+        XCTAssertEqual(WorkoutTimeFormat.spoken(3600), "1시간")
+        XCTAssertEqual(WorkoutTimeFormat.spoken(3725), "1시간 2분 5초")
+        XCTAssertEqual(WorkoutTimeFormat.spoken(0), "0초")
+        XCTAssertEqual(WorkoutTimeFormat.spoken(104.6), "1분 44초", "화면의 1:44와 같게 읽는다")
     }
 
     func testPercentNeverRoundsRealWorkToZero() {

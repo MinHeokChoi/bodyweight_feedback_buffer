@@ -38,8 +38,17 @@ enum WorkoutTimeFormat {
         return value < 1 ? "<1%" : "\(Int(value.rounded()))%"
     }
 
-    /// VoiceOver가 읽을 문자열.
+    /// VoiceOver가 읽을 문자열. 초까지 읽는다 — 화면의 "1:45"를 "1분"으로 읽으면 안 된다.
     static func spoken(_ interval: TimeInterval) -> String {
-        compact(interval)
+        // 화면의 clock()처럼 내림한다. 반올림하면 "1:44"를 "1분 45초"로 읽는다.
+        let total = Int(max(0, interval).rounded(.down))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        var parts: [String] = []
+        if hours > 0 { parts.append("\(hours)시간") }
+        if minutes > 0 { parts.append("\(minutes)분") }
+        if seconds > 0 || parts.isEmpty { parts.append("\(seconds)초") }
+        return parts.joined(separator: " ")
     }
 }

@@ -121,8 +121,10 @@ enum WorkoutStatistics {
 
         let days = workoutDays(in: scoped, calendar: calendar)
         summary.dayCount = days.count
-        summary.longestStreak = longestStreak(in: days, calendar: calendar)
-        summary.currentStreak = currentStreak(in: days, now: now, calendar: calendar)
+        // 연속은 기간에 잘리지 않는다. 7일을 고르면 최장이 7일로 잘려, 기간마다 "최장"이 달랐다.
+        let allDays = workoutDays(in: sessions(allSessions, in: .all, now: now, calendar: calendar), calendar: calendar)
+        summary.longestStreak = longestStreak(in: allDays, calendar: calendar)
+        summary.currentStreak = currentStreak(in: allDays, now: now, calendar: calendar)
         return summary
     }
 
