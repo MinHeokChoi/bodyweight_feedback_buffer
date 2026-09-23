@@ -246,5 +246,7 @@ struct WarmupView: View {
 }
 
 #Preview {
-    WarmupView().environment(WarmupStore())
+    WarmupView()
+        .environment(WarmupStore())
+        .environment(WorkoutTimerStore())
 }

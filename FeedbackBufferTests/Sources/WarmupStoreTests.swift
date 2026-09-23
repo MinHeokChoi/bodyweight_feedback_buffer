@@ -301,4 +301,72 @@ final class WarmupStoreTests: StoreTestCase {
         XCTAssertTrue(store.isWarmupComplete)
         XCTAssertEqual(store.skippedCount, 0)
     }
+
+    // MARK: - 러너 위치
+
+    /// 중간에 닫았다 열면 그 자리에서 이어간다. 건너뛴 항목으로 돌아가지 않는다.
+    func test_runnerResumesWhereItWasClosed() {
+        let store = makeWarmupStore()
+        XCTAssertEqual(store.runnerStartIndex(), 0)
+
+        store.saveRunnerPosition(4)
+
+        XCTAssertEqual(store.runnerStartIndex(), 4)
+    }
+
+    func test_runnerStartsOverAfterFinishing() {
+        let store = makeWarmupStore()
+        store.saveRunnerPosition(4)
+
+        store.markRunnerFinished()
+
+        XCTAssertEqual(store.runnerStartIndex(), 0, "끝까지 돈 뒤 다시 하기는 처음부터다")
+    }
+
+    func test_runnerPositionDoesNotCarryToNextDay() {
+        let store = makeWarmupStore()
+        store.saveRunnerPosition(4)
+
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date.now)!
+        XCTAssertEqual(store.runnerStartIndex(now: tomorrow), 0)
+    }
+
+    func test_runnerPositionIsForTheRoutineItWasSavedIn() {
+        let store = makeWarmupStore()
+        store.saveRunnerPosition(4)
+        let other = store.addWarmupSession(name: "짧은 웜업", items: [WarmupItem(id: "wrist", label: "손목")])
+
+        store.selectWarmupSession(other.id)
+
+        XCTAssertEqual(store.runnerStartIndex(), 0)
+    }
+
+    /// 닫은 사이 루틴을 고쳐 순서가 바뀌어도 보던 항목에서 이어간다.
+    func test_runnerResumesOnTheSameItemAfterEditing() {
+        let store = makeWarmupStore()
+        let stoppedAt = store.warmup[5]
+        store.saveRunnerPosition(5)
+
+        store.deleteWarmupItem(store.warmup[1].id)
+
+        XCTAssertEqual(store.warmup[store.runnerStartIndex()].id, stoppedAt.id)
+    }
+
+    func test_runnerStartsOverWhenItsItemWasDeleted() {
+        let store = makeWarmupStore()
+        store.saveRunnerPosition(5)
+
+        store.deleteWarmupItem(store.warmup[5].id)
+
+        XCTAssertEqual(store.runnerStartIndex(), 0)
+    }
+
+    func test_resetClearsRunnerPosition() {
+        let store = makeWarmupStore()
+        store.saveRunnerPosition(4)
+
+        store.resetWarmupToday()
+
+        XCTAssertEqual(store.runnerStartIndex(), 0)
+    }
 }

@@ -42,20 +42,28 @@ struct SegmentPickerGrid: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, DS.Spacing.xs)
+            // 제안은 자리를 옮기지 않고 바탕을 칠해 알린다. 테두리만으로는 멀리서 잘 안 보였다.
             .background {
                 RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
                     .fill(DS.Surface.card)
+                    .overlay {
+                        if isSuggested {
+                            RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
+                                .fill(kind.tint.opacity(0.14))
+                        }
+                    }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
                     .stroke(
-                        isSuggested ? kind.tint.opacity(0.6) : DS.Line.color,
-                        lineWidth: isSuggested ? 1 : DS.Line.width
+                        isSuggested ? kind.tint.opacity(0.8) : DS.Line.color,
+                        lineWidth: isSuggested ? 1.5 : DS.Line.width
                     )
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(kind.displayName) 시작")
+        .accessibilityHint(isSuggested ? "다음으로 할 만한 구간이에요" : "")
     }
 }
 

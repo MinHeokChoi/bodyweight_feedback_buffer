@@ -115,6 +115,31 @@ final class WorkoutTimerStoreTests: XCTestCase {
         XCTAssertEqual(store.paceState(now: at(540.5))?.lapIndex, 2)
     }
 
+    /// 일시정지 중에 구간을 끝내도 휴식은 멈춰 있지 않다.
+    func testEndingSegmentWhilePausedClosesThePause() {
+        let store = makeStore()
+        store.startSegment(.warmup, now: at(0))
+        store.pause(now: at(100))
+
+        store.endCurrentSegment(now: at(160))
+
+        XCTAssertFalse(store.isPaused)
+        XCTAssertEqual(store.currentSegmentDuration(now: at(160)), 0, "끝난 구간은 진행 중이 아니다")
+        XCTAssertEqual(store.accumulatedDuration(now: at(200)), 140, accuracy: 0.001, "멈춘 60초만 빠지고 휴식은 흐른다")
+    }
+
+    func testStartingSegmentWhilePausedResumes() {
+        let store = makeStore()
+        store.startSegment(.warmup, now: at(0))
+        store.endCurrentSegment(now: at(100))
+        store.pause(now: at(120))
+
+        store.startSegment(.strength, now: at(150))
+
+        XCTAssertFalse(store.isPaused)
+        XCTAssertEqual(store.currentSegmentDuration(now: at(210)), 60, accuracy: 0.001)
+    }
+
     func testSkipDoesNotShrinkSegmentOrSessionTotals() {
         let store = makeStore()
         store.startSegment(.strength, now: at(0))

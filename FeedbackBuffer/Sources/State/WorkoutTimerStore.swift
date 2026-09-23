@@ -125,6 +125,8 @@ final class WorkoutTimerStore {
         if session.runningSegment != nil {
             closeRunningSegment(in: &session, at: now)
         }
+        // 구간을 시작하는 것은 다시 움직인다는 뜻이다. 일시정지 안에서 시작하면 시간이 세지지 않는다.
+        closeOpenPause(in: &session, at: now)
         session.segments.append(
             TrainingSegment(kind: kind, startedAt: now, paceAnchoredAt: now)
         )
@@ -135,7 +137,15 @@ final class WorkoutTimerStore {
     func endCurrentSegment(now: Date = .now) {
         guard var session = activeSession, session.runningSegment != nil else { return }
         closeRunningSegment(in: &session, at: now)
+        // 일시정지 중에 끝내면 휴식이 멈춘 채로 남았다. 휴식 화면에는 재개 버튼이 없어서
+        // 다음 구간이 일시정지 안에서 시작돼 시간이 세지지 않았다.
+        closeOpenPause(in: &session, at: now)
         commit(session)
+    }
+
+    private func closeOpenPause(in session: inout WorkoutSession, at date: Date) {
+        guard let index = session.pauses.firstIndex(where: \.isOpen) else { return }
+        session.pauses[index].endedAt = date
     }
 
     /// 9분을 다 채우지 않고 다음 운동으로 넘긴다.
@@ -207,9 +217,7 @@ final class WorkoutTimerStore {
     func finishSession(now: Date = .now) -> WorkoutSession? {
         guard var session = activeSession else { return nil }
         closeRunningSegment(in: &session, at: now)
-        if let index = session.pauses.firstIndex(where: \.isOpen) {
-            session.pauses[index].endedAt = now
-        }
+        closeOpenPause(in: &session, at: now)
         session.endedAt = now
 
         activeSession = nil

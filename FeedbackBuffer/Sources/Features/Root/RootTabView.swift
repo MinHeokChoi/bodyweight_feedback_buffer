@@ -36,11 +36,10 @@ struct RootTabView: View {
                 }
                 .tag(Tab.warmup)
 
-            TimerView()
+            TimerView(tabSelection: $selection)
                 .tabItem {
-                    Label("타이머", systemImage: "stopwatch.fill")
+                    Label(timerTab.title, systemImage: timerTab.symbol)
                 }
-                .badge(workoutStore.isRunning ? "●" : nil)
                 .tag(Tab.timer)
 
             BufferView(tabSelection: $selection)
@@ -71,6 +70,15 @@ struct RootTabView: View {
                 Text(issue.message)
             }
         }
+    }
+
+    /// 다른 탭에 있어도 운동이 어떤 상태인지 탭 이름으로 알린다(FR-1).
+    /// 빨간 점 배지는 읽지 않은 알림처럼 보였고 진행·휴식·일시정지를 구분하지 못했다.
+    private var timerTab: (title: String, symbol: String) {
+        guard workoutStore.isRunning else { return ("타이머", "stopwatch.fill") }
+        if workoutStore.isPaused { return ("일시정지", "pause.circle.fill") }
+        if workoutStore.runningSegment != nil { return ("운동 중", "stopwatch.fill") }
+        return ("휴식 중", "hourglass")
     }
 
     private var keepsScreenAwake: Bool {

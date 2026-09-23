@@ -42,8 +42,12 @@ enum DS {
     // MARK: - Typography
 
     enum Typo {
-        /// 타이머 숫자. 동적으로 커지면 레이아웃이 깨지므로 이 하나만 고정 크기를 허용한다.
+        /// 타이머 숫자. 동적으로 커지면 레이아웃이 깨지므로 타이머 숫자만 고정 크기를 허용한다.
         static let timer = Font.system(size: 46, weight: .bold, design: .rounded).monospacedDigit()
+        /// 구간 진행 중의 큰 숫자. 폰을 바닥에 두고 1~2m 떨어져 본다.
+        /// 46pt는 실제 글자 높이가 6mm쯤이라 그 거리에서 읽기 어려웠다.
+        /// 한 시간을 넘으면 자리가 모자라니 쓰는 곳에서 minimumScaleFactor를 건다.
+        static let timerHero = Font.system(size: 96, weight: .bold, design: .rounded).monospacedDigit()
         /// 보조 타이머(누적 등). 살아 움직이는 숫자라 자리 흔들림을 막아야 해서 고정.
         static let timerSmall = Font.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit()
 

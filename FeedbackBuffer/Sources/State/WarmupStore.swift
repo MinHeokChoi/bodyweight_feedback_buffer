@@ -10,6 +10,8 @@ final class WarmupStore {
     private(set) var defaultWarmupSessionId: UUID?
     /// 오늘 러너를 마지막 항목까지 돌았는지. 체크 상태와 별개다.
     private(set) var didFinishRunnerToday = false
+    /// 러너를 닫았을 때 있던 자리. 화면에 그리지 않으니 관찰하지 않는다.
+    @ObservationIgnored private var runnerPosition: RunnerPosition?
 
     private let warmupRepository: WarmupRepository
     private let persistenceScheduler: PersistenceScheduler
@@ -135,6 +137,7 @@ final class WarmupStore {
     func resetWarmupToday() {
         warmup = warmup.map { WarmupItem(id: $0.id, label: $0.label) }
         didFinishRunnerToday = false
+        runnerPosition = nil
         guard let sessionId = selectedWarmupSessionId else { return }
         warmupRepository.reset(sessionId: sessionId, for: .now)
     }
@@ -144,7 +147,38 @@ final class WarmupStore {
     func markRunnerFinished(now: Date = .now) {
         guard !warmup.isEmpty, let sessionId = selectedWarmupSessionId else { return }
         didFinishRunnerToday = true
+        runnerPosition = nil
         warmupRepository.saveRunnerFinished(true, sessionId: sessionId, for: now)
+    }
+
+    // MARK: - 러너 위치
+
+    /// 자리를 번호가 아니라 항목으로 기억한다. 닫은 사이 루틴을 고쳐 순서가 바뀌어도
+    /// 보던 항목에서 이어간다.
+    private struct RunnerPosition {
+        let sessionId: UUID
+        let dateKey: String
+        let itemId: String
+    }
+
+    /// 러너를 열 때 시작할 항목. 중간에 닫았다면 그 자리에서 이어간다.
+    ///
+    /// 첫 미체크 항목부터가 아니다. 건너뛴 항목도 미체크라서(N5) 6번에서 닫았는데
+    /// 2번으로 돌아가게 된다. 하루 안의 일이라 저장하지 않는다 — 앱을 끄면 처음부터다.
+    func runnerStartIndex(now: Date = .now) -> Int {
+        guard let position = runnerPosition,
+              position.sessionId == selectedWarmupSessionId,
+              position.dateKey == WarmupDateKey.today(now) else { return 0 }
+        return warmup.firstIndex { $0.id == position.itemId } ?? 0
+    }
+
+    func saveRunnerPosition(_ index: Int, now: Date = .now) {
+        guard let sessionId = selectedWarmupSessionId, warmup.indices.contains(index) else { return }
+        runnerPosition = RunnerPosition(
+            sessionId: sessionId,
+            dateKey: WarmupDateKey.today(now),
+            itemId: warmup[index].id
+        )
     }
 
     func addWarmupItem(label: String) {
